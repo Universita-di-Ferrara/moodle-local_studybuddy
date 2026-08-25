@@ -1,0 +1,107 @@
+{{!
+This file is part of Moodle - http://moodle.org/
+
+Moodle is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Moodle is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+@package   local_studybuddy
+@copyright 2026 Università degli Studi di Ferrara - Unife - Unife
+@author    Andrea Bertelli <andrea.bertelli@unife.it>
+@license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+
+{{!
+    @template local_studybuddy/teacher_recent_drafts
+
+    Teacher recent drafts list.
+
+    Example context (json): {}
+}}
+{{#hasdrafts}}
+    <div id="local-studybuddy-history-panel" class="w-100 p-0 border rounded bg-white local-studybuddy-panel local-studybuddy-history-panel mb-0">
+        <div class="d-flex align-items-center p-3 px-md-4 local-studybuddy-history-panel-header">
+            <h2 class="m-0 local-studybuddy-section-title">{{heading}}</h2>
+        </div>
+        <div class="list-group list-group-flush local-studybuddy-history-list local-studybuddy-practice-history-list">
+            {{#drafts}}
+                <div class="list-group-item d-flex justify-content-between px-3 py-2 local-studybuddy-history-item local-studybuddy-practice-history-item {{#active}}bg-light border-top-0 border-right-0 border-bottom-0 border-left border-primary{{/active}}">
+                    <div class="d-flex flex-wrap align-items-center local-studybuddy-history-main">
+                        <span class="d-inline-flex align-items-center justify-content-center mr-3 rounded-circle local-studybuddy-card-icon-primary local-studybuddy-practice-history-icon" aria-hidden="true">
+                            {{#isquiz}}{{#pix}}i/activities, core{{/pix}}{{/isquiz}}
+                            {{#isflashcards}}<i class="fa fa-flash" aria-hidden="true"></i>{{/isflashcards}}
+                        </span>
+                        <span class="local-studybuddy-history-copy">
+                            <a href="{{reviewurl}}" class="local-studybuddy-history-link" {{#active}}aria-current="page"{{/active}}>{{title}}</a>
+                            <span class="d-flex flex-wrap align-items-center local-studybuddy-history-badges">
+                                <span class="badge badge-light rounded-pill local-studybuddy-status-badge">{{typelabel}}</span>
+                                <span class="badge {{#isfailed}}badge-danger{{/isfailed}}{{#ispending}}badge-info{{/ispending}}{{#isready}}badge-success{{/isready}} rounded-pill local-studybuddy-status-badge">{{status}}</span>
+                            </span>
+                            <span class="local-studybuddy-history-updated">{{timeupdated}}</span>
+                        </span>
+                        {{#showmissingbadge}}
+                            <span class="badge badge-warning rounded-pill">{{missinglabel}}</span>
+                        {{/showmissingbadge}}
+                    </div>
+                    <div class="d-flex flex-row flex-wrap align-items-center local-studybuddy-history-actions local-studybuddy-teacher-history-actions">
+                        <a
+                            href="{{reviewurl}}"
+                            class="local-studybuddy-icon-button btn btn-outline-secondary d-inline-flex align-items-center justify-content-center"
+                            title="{{reviewlabel}}"
+                            aria-label="{{reviewlabel}}">
+                            {{#pix}}t/edit, core{{/pix}}
+                            <span class="sr-only">{{reviewlabel}}</span>
+                        </a>
+                        {{#canreuse}}
+                            <form method="post"
+                                  class="d-flex flex-wrap align-items-center"
+                                  data-confirm-submit="reuse-draft"
+                                  data-confirm-title="{{reuseconfirmtitle}}"
+                                  data-confirm-message="{{reuseconfirmbody}}">
+                                <input type="hidden" name="courseid" value="{{courseid}}">
+                                <input type="hidden" name="draftid" value="{{id}}">
+                                <input type="hidden" name="sesskey" value="{{sesskey}}">
+                                <input type="hidden" name="action" value="duplicate">
+                                <button
+                                    type="submit"
+                                    class="local-studybuddy-icon-button btn btn-outline-primary d-inline-flex align-items-center justify-content-center"
+                                    title="{{reuselabel}}"
+                                    aria-label="{{reuselabel}}">
+                                    {{#pix}}t/copy, core{{/pix}}
+                                    <span class="sr-only">{{reuselabel}}</span>
+                                </button>
+                            </form>
+                        {{/canreuse}}
+                        <form method="post"
+                              class="d-flex flex-wrap align-items-center"
+                              data-confirm-submit="delete-draft"
+                              data-confirm-title="{{deleteconfirmtitle}}"
+                              data-confirm-message="{{deleteconfirmbody}}">
+                            <input type="hidden" name="courseid" value="{{courseid}}">
+                            <input type="hidden" name="draftid" value="{{id}}">
+                            <input type="hidden" name="sesskey" value="{{sesskey}}">
+                            <input type="hidden" name="action" value="delete">
+                            <button
+                                type="submit"
+                                class="local-studybuddy-icon-button btn btn-outline-danger d-inline-flex align-items-center justify-content-center"
+                                title="{{deletelabel}}"
+                                aria-label="{{deletelabel}}">
+                                {{#pix}}t/delete, core{{/pix}}
+                                <span class="sr-only">{{deletelabel}}</span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            {{/drafts}}
+        </div>
+    </div>
+{{/hasdrafts}}

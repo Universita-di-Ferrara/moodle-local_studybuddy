@@ -1,0 +1,459 @@
+{{!
+This file is part of Moodle - http://moodle.org/
+
+Moodle is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Moodle is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+@package   local_studybuddy
+@copyright 2026 Università degli Studi di Ferrara - Unife - Unife
+@author    Andrea Bertelli <andrea.bertelli@unife.it>
+@license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+
+{{!
+    @template local_studybuddy/teacher_draft_editor
+
+    Teacher draft editor.
+
+    Example context (json): {}
+}}
+{{#hasdraft}}
+    {{#ispending}}
+        <div class="alert alert-info local-studybuddy-generation-alert" role="status">
+            <h2 class="m-0 mb-1 local-studybuddy-section-title">{{pendingtitle}}</h2>
+            <p class="local-studybuddy-section-copy mb-3">{{pendingdescription}}</p>
+            <a href="{{refreshurl}}" class="btn btn-outline-primary">{{refreshstatuslabel}}</a>
+        </div>
+    {{/ispending}}
+
+    {{#isfailed}}
+        <div class="alert alert-danger local-studybuddy-generation-alert" role="alert">
+            <h2 class="m-0 mb-1 local-studybuddy-section-title">{{failedtitle}}</h2>
+            <p class="local-studybuddy-section-copy mb-3">{{faileddescription}}</p>
+            <a href="{{refreshurl}}" class="btn btn-outline-secondary">{{refreshstatuslabel}}</a>
+        </div>
+    {{/isfailed}}
+
+    {{#showquestionlist}}
+        <div class="local-studybuddy-open-draft">
+            <div class="mb-4 local-studybuddy-current-draft-header">
+                <h2 class="m-0 local-studybuddy-current-draft-title">{{drafttitle}}</h2>
+            </div>
+
+            <div class="d-flex align-items-center justify-content-between px-1 mb-3 local-studybuddy-question-list-heading">
+                <h3 class="local-studybuddy-editor-title">{{questionsheading}}</h3>
+            </div>
+
+            <div class="row align-items-start">
+                <div class="col-12 col-lg-8 mb-4 mb-lg-0">
+                    <form method="post" class="local-studybuddy-form">
+                        <input type="hidden" name="courseid" value="{{courseid}}">
+                        <input type="hidden" name="draftid" value="{{draftid}}">
+                        <input type="hidden" name="sesskey" value="{{sesskey}}">
+
+                        <div class="local-studybuddy-draft-question-list">
+                    {{#questions}}
+                        <div class="align-items-start p-3 border rounded bg-white local-studybuddy-draft-question-card">
+                            <div class="local-studybuddy-draft-question-body">
+                                <div class="d-flex flex-wrap align-items-center mb-2 local-studybuddy-draft-question-header">
+                                    <h4 class="local-studybuddy-editor-title">{{heading}}</h4>
+                                    <span class="badge badge-light rounded-pill local-studybuddy-status-badge">{{typelabel}}</span>
+                                    <a
+                                        href="{{previewurl}}"
+                                        class="local-studybuddy-icon-button btn btn-outline-secondary d-inline-flex align-items-center justify-content-center"
+                                        title="{{editquestionlabel}}"
+                                        aria-label="{{editquestionlabel}}">
+                                        {{#pix}}t/edit, core{{/pix}}
+                                        <span class="sr-only">{{editquestionlabel}}</span>
+                                    </a>
+                                    <button
+                                        type="submit"
+                                        name="deleteitem"
+                                        value="{{index}}"
+                                        class="local-studybuddy-icon-button btn btn-outline-danger d-inline-flex align-items-center justify-content-center ml-auto"
+                                        data-confirm-submit="delete-question"
+                                        data-confirm-title="{{deleteitemconfirmtitle}}"
+                                        data-confirm-message="{{deletequestionconfirmbody}}"
+                                        title="{{deletequestionlabel}}"
+                                        aria-label="{{deletequestionlabel}}">
+                                        {{#pix}}t/delete, core{{/pix}}
+                                        <span class="sr-only">{{deletequestionlabel}}</span>
+                                    </button>
+                                </div>
+                                <p class="m-0 mb-4 local-studybuddy-draft-question-text">{{questiontext}}</p>
+                            </div>
+
+                            <input type="hidden" name="questiontext[{{index}}]" value="{{questiontext}}">
+                            <input type="hidden" name="questionfeedback[{{index}}]" value="{{feedback}}">
+                            {{#answers}}
+                                <input type="hidden" name="answertext[{{questionindex}}][{{index}}]" value="{{text}}">
+                                {{#checked}}<input type="hidden" name="correctanswer[{{questionindex}}]" value="{{index}}">{{/checked}}
+                            {{/answers}}
+                        </div>
+                    {{/questions}}
+                        </div>
+
+                        <div class="align-items-center mt-3 p-2 p-sm-3 border rounded bg-white local-studybuddy-draft-list-actions">
+                    <button type="submit" name="action" value="additem" class="btn btn-outline-primary d-inline-flex align-items-center justify-content-center px-4 py-2 mt-3 local-studybuddy-empty-generate-btn">
+                        <span aria-hidden="true">+</span>
+                        <span>{{addquestionlabel}}</span>
+                    </button>
+                    <span class="d-flex flex-wrap justify-content-end local-studybuddy-draft-list-primary-actions">
+                        <button type="submit" name="action" value="save" class="btn btn-primary d-inline-flex align-items-center justify-content-center px-4 rounded local-studybuddy-primary-btn">{{savecontinuebutton}}</button>
+                        {{#canpublish}}
+                            <button type="submit" name="action" value="publish" class="btn btn-success">{{publishbutton}}</button>
+                        {{/canpublish}}
+                    </span>
+                    <span class="local-studybuddy-autosave-hint">{{autosavedlabel}}</span>
+                        </div>
+                    </form>
+                </div>
+                <aside class="col-12 col-lg-4" aria-label="{{recentdraftsheading}}">
+                    {{{recentdraftshtml}}}
+                </aside>
+            </div>
+        </div>
+    {{/showquestionlist}}
+
+    {{#showh5pflashcards}}
+        <div class="local-studybuddy-open-draft">
+            <div class="mb-4 local-studybuddy-current-draft-header">
+                <h2 class="m-0 local-studybuddy-current-draft-title">{{drafttitle}}</h2>
+            </div>
+
+                <div class="d-flex align-items-center justify-content-between px-1 mb-3 local-studybuddy-question-list-heading">
+                <h3 class="local-studybuddy-editor-title">{{flashcardsheading}}</h3>
+            </div>
+
+            <div class="row align-items-start">
+                <div class="col-12 col-lg-8 mb-4 mb-lg-0">
+                    <form method="post" class="local-studybuddy-form">
+                        <input type="hidden" name="courseid" value="{{courseid}}">
+                        <input type="hidden" name="draftid" value="{{draftid}}">
+                        <input type="hidden" name="sesskey" value="{{sesskey}}">
+
+                        <div class="local-studybuddy-draft-question-list">
+                    {{#flashcards}}
+                        <div class="align-items-start p-3 border rounded bg-white local-studybuddy-draft-question-card local-studybuddy-flashcard-review-card {{#isediting}}local-studybuddy-flashcard-review-card-editing{{/isediting}}" data-flashcard-index="{{index}}" {{#isediting}}data-autofocus="true"{{/isediting}}>
+                            <div class="local-studybuddy-draft-question-body">
+                                <div class="d-flex flex-wrap align-items-center mb-2 local-studybuddy-draft-question-header">
+                                    <h4 class="local-studybuddy-editor-title">{{heading}}</h4>
+                                    <span class="badge badge-light rounded-pill local-studybuddy-status-badge">{{typelabel}}</span>
+                                    <span class="d-inline-flex flex-wrap align-items-center justify-content-end local-studybuddy-flashcard-review-actions ml-0 ml-sm-auto">
+                                        <button
+                                            type="button"
+                                            class="local-studybuddy-icon-button btn btn-outline-primary d-inline-flex align-items-center justify-content-center"
+                                            data-action="edit-flashcard"
+                                            aria-expanded="{{#isediting}}true{{/isediting}}{{^isediting}}false{{/isediting}}"
+                                            title="{{editflashcardlabel}}"
+                                            aria-label="{{editflashcardlabel}}">
+                                            {{#pix}}t/edit, core{{/pix}}
+                                            <span class="sr-only">{{editflashcardlabel}}</span>
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            name="deleteitem"
+                                            value="{{index}}"
+                                            class="local-studybuddy-icon-button btn btn-outline-danger d-inline-flex align-items-center justify-content-center"
+                                            data-confirm-submit="delete-flashcard"
+                                            data-confirm-title="{{deleteitemconfirmtitle}}"
+                                            data-confirm-message="{{deleteflashcardconfirmbody}}"
+                                            title="{{deleteflashcardlabel}}"
+                                            aria-label="{{deleteflashcardlabel}}">
+                                            {{#pix}}t/delete, core{{/pix}}
+                                            <span class="sr-only">{{deleteflashcardlabel}}</span>
+                                        </button>
+                                    </span>
+                                </div>
+
+                                <div class="p-3 border rounded bg-light local-studybuddy-flashcard-compact-front">
+                                    <div class="mb-1 local-studybuddy-flashcard-compact-label">{{flashcardcompactfrontlabel}}</div>
+                                    <p class="m-0 local-studybuddy-flashcard-compact-text">{{front}}</p>
+                                </div>
+
+                                {{#hascitations}}
+                                    <div class="local-studybuddy-citations mt-3 {{#isediting}}d-none{{/isediting}}" data-region="flashcard-compact-citations">
+                                        <strong>{{citationslabel}}</strong>
+                                        {{#citations}}<span class="badge badge-light rounded-pill ml-1">{{label}}</span>{{/citations}}
+                                    </div>
+                                {{/hascitations}}
+
+                                <div class="mt-3 pt-3 border-top local-studybuddy-flashcard-edit-panel {{^isediting}}d-none{{/isediting}}" data-region="flashcard-edit-panel">
+                                    <div class="form-group local-studybuddy-field">
+                                        <label class="d-block mb-2 local-studybuddy-label" for="id_cardfront_{{index}}">{{flashcardfrontlabel}}</label>
+                                        <textarea id="id_cardfront_{{index}}" name="cardfront[{{index}}]" class="form-control w-100 local-studybuddy-input local-studybuddy-draft-textarea" rows="3" required>{{front}}</textarea>
+                                    </div>
+
+                                    <div class="form-group local-studybuddy-field">
+                                        <label class="d-block mb-2 local-studybuddy-label" for="id_cardback_{{index}}">{{flashcardbacklabel}}</label>
+                                        <textarea id="id_cardback_{{index}}" name="cardback[{{index}}]" class="form-control w-100 local-studybuddy-input local-studybuddy-draft-textarea local-studybuddy-draft-textarea-large" rows="5" required>{{back}}</textarea>
+                                    </div>
+
+                                    <div class="form-group local-studybuddy-field mb-0">
+                                        <label class="d-block mb-2 local-studybuddy-label" for="id_cardhint_{{index}}">{{flashcardhintlabel}}</label>
+                                        <textarea id="id_cardhint_{{index}}" name="cardhint[{{index}}]" class="form-control w-100 local-studybuddy-input local-studybuddy-draft-textarea" rows="3">{{hint}}</textarea>
+                                    </div>
+
+                                    {{#hascitations}}
+                                        <div class="local-studybuddy-citations mt-3">
+                                            <strong>{{citationslabel}}</strong>
+                                            {{#citations}}<span class="badge badge-light rounded-pill ml-1">{{label}}</span>{{/citations}}
+                                        </div>
+                                    {{/hascitations}}
+                                </div>
+                            </div>
+                        </div>
+                    {{/flashcards}}
+                        </div>
+
+                        <div class="align-items-center mt-3 p-2 p-sm-3 border rounded bg-white local-studybuddy-draft-list-actions">
+                    <button type="submit" name="action" value="additem" class="btn btn-outline-primary d-inline-flex align-items-center justify-content-center px-4 py-2 mt-3 local-studybuddy-empty-generate-btn">
+                        <span aria-hidden="true">+</span>
+                        <span>{{addquestionlabel}}</span>
+                    </button>
+                    <span class="d-flex flex-wrap justify-content-end local-studybuddy-draft-list-primary-actions">
+                        <button type="submit" name="action" value="save" class="btn btn-primary d-inline-flex align-items-center justify-content-center px-4 rounded local-studybuddy-primary-btn">{{savecontinuebutton}}</button>
+                        {{#canpublish}}
+                            <button type="submit" name="action" value="publish" class="btn btn-success">{{publishbutton}}</button>
+                        {{/canpublish}}
+                    </span>
+                    <span class="local-studybuddy-autosave-hint">{{autosavedlabel}}</span>
+                        </div>
+                    </form>
+                </div>
+                <aside class="col-12 col-lg-4" aria-label="{{recentdraftsheading}}">
+                    {{{recentdraftshtml}}}
+                </aside>
+            </div>
+        </div>
+    {{/showh5pflashcards}}
+
+    {{#showquestionpreview}}
+        <div class="local-studybuddy-question-preview-workspace">
+            <div class="d-flex flex-column align-items-start mb-3 local-studybuddy-editor-first-header">
+                <a href="{{backtoquestionsurl}}" class="d-inline-flex align-items-center local-studybuddy-back-link">
+                    {{#pix}}t/left, core{{/pix}}
+                    <span class="ml-1">{{backtoquestionslabel}}</span>
+                </a>
+                <div class="d-flex align-items-center local-studybuddy-editor-first-title">
+                    <div>
+                        <h2 class="m-0 local-studybuddy-section-title">{{previewandeditheading}}</h2>
+                        <p class="m-0 local-studybuddy-section-copy">{{previewandeditdesc}}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="local-studybuddy-editor-first-layout">
+                <aside class="local-studybuddy-editor-first-navigator" aria-label="{{questionsheading}}">
+                    <div class="w-100 p-3 border rounded bg-white local-studybuddy-panel local-studybuddy-question-jump-card">
+                        <div class="d-flex align-items-center mb-3 local-studybuddy-editor-first-panel-heading">
+                            <h3 class="m-0 local-studybuddy-editor-title">{{questionsheading}}</h3>
+                        </div>
+                        <nav class="local-studybuddy-question-jump-list" aria-label="{{questionsheading}}">
+                            {{#questions}}
+                                <a href="{{previewurl}}" class="local-studybuddy-question-jump-item {{#active}}active{{/active}} rounded p-2" {{#active}}aria-current="page"{{/active}}>
+                                    <span class="d-inline-flex align-items-center justify-content-center border rounded-circle local-studybuddy-question-jump-number {{^active}}bg-white{{/active}}">{{number}}</span>
+                                    <span>
+                                        <span class="badge badge-light rounded-pill local-studybuddy-status-badge">{{typelabel}}</span>
+                                        <span class="d-block local-studybuddy-question-jump-text">{{questiontext}}</span>
+                                    </span>
+                                </a>
+                            {{/questions}}
+                        </nav>
+                    </div>
+                </aside>
+
+                <form method="post" class="local-studybuddy-form local-studybuddy-editor-first-form">
+                    <input type="hidden" name="courseid" value="{{courseid}}">
+                    <input type="hidden" name="draftid" value="{{draftid}}">
+                    <input type="hidden" name="sesskey" value="{{sesskey}}">
+
+                    {{#questions}}
+                        {{#hidden}}
+                            <input type="hidden" name="questiontext[{{index}}]" value="{{questiontext}}">
+                            <input type="hidden" name="questionfeedback[{{index}}]" value="{{feedback}}">
+                            {{#answers}}
+                                <input type="hidden" name="answertext[{{questionindex}}][{{index}}]" value="{{text}}">
+                                {{#checked}}<input type="hidden" name="correctanswer[{{questionindex}}]" value="{{index}}">{{/checked}}
+                            {{/answers}}
+                        {{/hidden}}
+                    {{/questions}}
+
+                    {{#selectedquestion}}
+                        <div class="w-100 p-3 p-md-4 border rounded bg-white local-studybuddy-panel local-studybuddy-editor-first-editor">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between mb-4 local-studybuddy-editor-first-editor-header">
+                                <div class="d-flex align-items-center">
+                                    <span class="d-inline-flex align-items-center justify-content-center mr-3 rounded local-studybuddy-card-icon-primary local-studybuddy-history-icon" aria-hidden="true">
+                                        {{#pix}}i/edit, core{{/pix}}
+                                    </span>
+                                    <div>
+                                        <h3 class="m-0 local-studybuddy-editor-title">{{editmodelabel}}</h3>
+                                        <span class="badge badge-light rounded-pill local-studybuddy-status-badge">{{typelabel}}</span>
+                                    </div>
+                                </div>
+                                <div class="d-inline-flex flex-wrap align-items-center ml-auto local-studybuddy-editor-first-actions">
+                                    <button
+                                        type="button"
+                                        class="btn btn-outline-primary d-inline-flex align-items-center rounded"
+                                        data-toggle="modal"
+                                        data-target="#local-studybuddy-question-preview-{{index}}"
+                                        aria-controls="local-studybuddy-question-preview-{{index}}"
+                                        aria-haspopup="dialog"
+                                        title="{{previewmodelabel}}"
+                                        aria-label="{{previewmodelabel}}">
+                                        {{#pix}}t/viewdetails, core{{/pix}}
+                                        <span class="ml-1 d-none d-sm-inline">{{previewmodelabel}}</span>
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        name="deleteitem"
+                                        value="{{index}}"
+                                        class="local-studybuddy-icon-button btn rounded btn-outline-danger d-inline-flex align-items-center justify-content-center align-self-stretch"
+                                        data-confirm-submit="delete-question"
+                                        data-confirm-title="{{deleteitemconfirmtitle}}"
+                                        data-confirm-message="{{deletequestionconfirmbody}}"
+                                        title="{{deletequestionlabel}}"
+                                        aria-label="{{deletequestionlabel}}">
+                                        {{#pix}}t/delete, core{{/pix}}
+                                        <span class="sr-only">{{deletequestionlabel}}</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="form-group local-studybuddy-field">
+                                <label class="d-block mb-2 local-studybuddy-label" for="id_questiontext_{{index}}">{{questiontextlabel}}</label>
+                                <textarea id="id_questiontext_{{index}}" name="questiontext[{{index}}]" class="form-control local-studybuddy-input local-studybuddy-textarea" rows="5" required>{{questiontext}}</textarea>
+                            </div>
+
+                            <fieldset class="m-0 p-0 border-0 local-studybuddy-answer-options-fieldset">
+                                <legend class="w-100 mb-2 local-studybuddy-editor-subtitle">{{answeroptionslabel}}</legend>
+                                <p class="mb-3 local-studybuddy-field-help" id="id_answeroptions_help_{{index}}">{{answeroptionshelp}}</p>
+                                {{#answers}}
+                                    <div class="align-items-start p-3 border rounded local-studybuddy-answer-editor local-studybuddy-answer-editor-row {{#checked}}local-studybuddy-answer-editor-row-correct{{/checked}} mt-2">
+                                        <div class="d-flex align-items-center local-studybuddy-answer-choice-control">
+                                            <input type="radio"
+                                                id="id_correctanswer_{{questionindex}}_{{index}}"
+                                                name="correctanswer[{{questionindex}}]"
+                                                value="{{index}}"
+                                                {{#checked}}checked{{/checked}}
+                                                class="local-studybuddy-answer-correct-radio">
+                                            <label class="d-flex align-items-center m-0 mr-3 local-studybuddy-answer-choice-label" for="id_correctanswer_{{questionindex}}_{{index}}">
+                                                <span class="local-studybuddy-answer-letter" aria-hidden="true">{{letter}}</span>
+                                                <span
+                                                    class="local-studybuddy-answer-choice-action {{#checked}}badge badge-primary rounded-pill{{/checked}}{{^checked}}text-muted{{/checked}}"
+                                                    data-correct-label="{{correctanswerchoice}}"
+                                                    data-mark-label="{{markascorrect}}">
+                                                    {{#checked}}{{correctanswerchoice}}{{/checked}}
+                                                    {{^checked}}{{markascorrect}}{{/checked}}
+                                                </span>
+                                            </label>
+                                        </div>
+                                        <textarea id="id_answertext_{{questionindex}}_{{index}}"
+                                            name="answertext[{{questionindex}}][{{index}}]"
+                                            class="form-control w-100 local-studybuddy-input local-studybuddy-answer-textarea"
+                                            rows="3"
+                                            aria-describedby="id_answeroptions_help_{{index}}"
+                                            required>{{text}}</textarea>
+                                    </div>
+                                {{/answers}}
+                            </fieldset>
+
+                            <div class="form-group local-studybuddy-field mt-4">
+                                <label class="d-block mb-2 local-studybuddy-label" for="id_questionfeedback_{{index}}">{{questionfeedbacklabel}}</label>
+                                <textarea id="id_questionfeedback_{{index}}" name="questionfeedback[{{index}}]" class="form-control local-studybuddy-input" rows="4">{{feedback}}</textarea>
+                            </div>
+
+                            <div class="d-flex flex-wrap align-items-center justify-content-between mt-4 pt-3 border-top local-studybuddy-question-preview-actions">
+                                <a href="{{backtoquestionsurl}}" class="btn btn-outline-secondary d-inline-flex align-items-center">
+                                    {{#pix}}t/left, core{{/pix}}
+                                    <span class="ml-1">{{cancelbutton}}</span>
+                                </a>
+                                <button type="submit" name="action" value="save" class="btn btn-primary d-inline-flex align-items-center local-studybuddy-primary-btn">
+                                    {{#pix}}t/check, core{{/pix}}
+                                    <span class="ml-1">{{savecontinuebutton}}</span>
+                                </button>
+                            </div>
+                            <span class="local-studybuddy-autosave-hint">{{autosavedlabel}}</span>
+                        </div>
+                    {{/selectedquestion}}
+                </form>
+
+            </div>
+
+            {{#selectedquestion}}
+                <div class="modal fade local-studybuddy-question-preview-modal" id="local-studybuddy-question-preview-{{index}}" tabindex="-1" role="dialog" aria-labelledby="local-studybuddy-question-preview-title-{{index}}" aria-hidden="true">
+                    <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <div class="d-flex align-items-center">
+                                    <span class="d-inline-flex align-items-center justify-content-center mr-3 rounded-circle local-studybuddy-card-icon-primary local-studybuddy-editor-first-panel-icon" aria-hidden="true">
+                                        {{#pix}}t/viewdetails, core{{/pix}}
+                                    </span>
+                                    <div>
+                                        <h3 class="modal-title local-studybuddy-editor-title" id="local-studybuddy-question-preview-title-{{index}}">{{previewmodelabel}}</h3>
+                                        <span class="badge badge-light rounded-pill local-studybuddy-status-badge">{{heading}} of {{questioncount}}</span>
+                                    </div>
+                                </div>
+                                <button type="button" class="close" data-dismiss="modal" aria-label="{{closepreviewlabel}}">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                <span class="badge badge-light rounded-pill local-studybuddy-status-badge">{{typelabel}}</span>
+                                <h4 class="mt-3 mb-3 local-studybuddy-question-preview-title">{{questiontext}}</h4>
+                                <div class="local-studybuddy-preview-answer-stack">
+                                    {{#answers}}
+                                        <div class="align-items-center m-0 p-3 border rounded bg-white local-studybuddy-preview-answer-option {{#checked}}selected{{/checked}}">
+                                            <span class="local-studybuddy-preview-radio" aria-hidden="true"></span>
+                                            <strong>{{letter}}.</strong>
+                                            <span>{{text}}</span>
+                                        </div>
+                                    {{/answers}}
+                                </div>
+                                <div class="mt-3 p-3 border rounded bg-light local-studybuddy-explanation-box">
+                                    <strong>{{questionfeedbacklabel}}</strong>
+                                    <p class="mt-2 mb-0">{{feedback}}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {{/selectedquestion}}
+        </div>
+    {{/showquestionpreview}}
+{{/hasdraft}}
+
+{{^hasdraft}}
+    <div class="d-flex align-items-center justify-content-center w-100 p-3 border rounded bg-white local-studybuddy-panel local-studybuddy-draft-empty-panel mb-0">
+        <div class="mx-auto local-studybuddy-draft-empty-content">
+            <span class="d-inline-flex align-items-center justify-content-center mb-4 rounded bg-light local-studybuddy-empty-document-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="M8 3h6l4 4v14H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path>
+                    <path d="M14 3v5h5"></path>
+                    <path d="M9 12h4"></path>
+                    <path d="M9 16h5"></path>
+                    <path d="M17 13a2.4 2.4 0 0 1 2.4 2.4c0 1.7-1.6 2-1.6 3.1"></path>
+                    <path d="M17.8 21h.01"></path>
+                </svg>
+            </span>
+            <h2 class="m-0 mb-1 local-studybuddy-section-title">{{emptytitle}}</h2>
+            <p class="mb-3 local-studybuddy-section-copy">{{emptydescription}}</p>
+            {{#showgenerateaction}}
+                <a href="{{generateurl}}" class="btn btn-outline-primary d-inline-flex align-items-center justify-content-center px-4 py-2 mt-3 local-studybuddy-empty-generate-btn">
+                    <span aria-hidden="true">✦</span>
+                    <span>{{generatelabel}}</span>
+                </a>
+            {{/showgenerateaction}}
+        </div>
+    </div>
+{{/hasdraft}}

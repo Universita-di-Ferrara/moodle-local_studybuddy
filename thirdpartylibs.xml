@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<thirdpartylibs>
+    <library>
+        <name>Mind Elixir</name>
+        <version>5.13.0</version>
+        <license>MIT</license>
+        <licenseurl>https://opensource.org/licenses/MIT</licenseurl>
+        <origin>https://github.com/SSShooter/mind-elixir-core</origin>
+        <homepage>https://docs.mind-elixir.com</homepage>
+        <downloadurl>https://github.com/SSShooter/mind-elixir-core/releases</downloadurl>
+        <issuesurl>https://github.com/SSShooter/mind-elixir-core/issues</issuesurl>
+        <credits>SSShooter</credits>
+    </library>
+</thirdpartylibs>

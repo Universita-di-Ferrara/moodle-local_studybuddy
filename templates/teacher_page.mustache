@@ -1,0 +1,172 @@
+{{!
+This file is part of Moodle - http://moodle.org/
+
+Moodle is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Moodle is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+@package   local_studybuddy
+@copyright 2026 Università degli Studi di Ferrara - Unife - Unife
+@author    Andrea Bertelli <andrea.bertelli@unife.it>
+@license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+
+{{!
+    @template local_studybuddy/teacher_page
+
+    Teacher studio page.
+
+    Example context (json): {}
+}}
+<div class="local-studybuddy-shell local-studybuddy-shell-teacher pb-0 pb-lg-3 rounded-0" data-region="studybuddy-teacher">
+    {{#sectionnav}}
+        {{> local_studybuddy/section_nav }}
+    {{/sectionnav}}
+
+    <div class="local-studybuddy-page-header mb-3 pb-2 pb-md-3">
+        <h1 class="m-0 mb-1 local-studybuddy-page-title">{{herotitle}}</h1>
+        <p class="m-0 local-studybuddy-page-copy">{{herolead}}</p>
+    </div>
+
+    {{{messagehtml}}}
+
+    <div class="local-studybuddy-teacher-workspace">
+        {{^showreview}}
+            <div class="row align-items-start mb-3">
+                <div class="col-12 col-lg-8 mb-4 mb-lg-0">
+
+        {{#showgenerate}}
+            <div class="d-block local-studybuddy-tab-panel active">
+                        <div class="w-100 p-3 border rounded bg-white local-studybuddy-panel mb-0">
+                            <div class="d-flex align-items-center mb-4">
+                                <h2 class="m-0 local-studybuddy-section-title">{{generateheading}}</h2>
+                            </div>
+
+                            <form method="post" class="local-studybuddy-form" data-studybuddy-loading-form="generate">
+                                <input type="hidden" name="courseid" value="{{courseid}}">
+                                <input type="hidden" name="sesskey" value="{{sesskey}}">
+                                <input type="hidden" name="action" value="generate">
+
+                                {{#generationdisabled}}
+                                    <div class="alert alert-warning" role="alert">{{generationdisabledmessage}}</div>
+                                {{/generationdisabled}}
+
+                                <fieldset class="mb-4 local-studybuddy-field">
+                                    <legend class="d-block mb-2 local-studybuddy-label">{{activitytypelabel}}</legend>
+                                    <div class="row">
+                                        {{#activitytypes}}
+                                            <div class="col-6 col-md-6 mb-2 mb-md-0">
+                                                <input
+                                                    type="radio"
+                                                    id="id_teacher_activitytype_{{value}}"
+                                                    name="activitytype"
+                                                    value="{{value}}"
+                                                    class="sr-only local-studybuddy-activity-input"
+                                                    {{#selected}}checked{{/selected}}
+                                                    data-studybuddy-activity-type="{{value}}">
+                                                <label class="d-flex flex-column h-100 p-3 border rounded local-studybuddy-activity-choice" for="id_teacher_activitytype_{{value}}">
+                                                    <span class="d-inline-flex align-items-center justify-content-center mb-3 rounded-circle local-studybuddy-card-icon-primary local-studybuddy-activity-choice-icon" aria-hidden="true">
+                                                        {{#isquiz}}{{#pix}}i/activities, core{{/pix}}{{/isquiz}}
+                                                        {{#isflashcards}}<i class="fa fa-flash" aria-hidden="true"></i>{{/isflashcards}}
+                                                    </span>
+                                                    <span class="font-weight-bold text-dark">{{label}}</span>
+                                                    <span class="small text-muted mt-1">{{description}}</span>
+                                                </label>
+                                            </div>
+                                        {{/activitytypes}}
+                                    </div>
+                                </fieldset>
+
+                                <div class="form-group local-studybuddy-field">
+                                    <label class="d-block mb-2 local-studybuddy-label" for="id_title">{{drafttitlelabel}}</label>
+                                    <input type="text" id="id_title" name="title" class="form-control local-studybuddy-input" required value="{{defaulttitle}}">
+                                </div>
+
+                                <div class="form-group local-studybuddy-field">
+                                    <label class="d-block mb-2 local-studybuddy-label" for="id_prompttext">{{querylabel}}</label>
+                                    <textarea id="id_prompttext" name="prompttext" class="form-control local-studybuddy-input local-studybuddy-textarea" rows="4" placeholder="{{queryplaceholder}}" required></textarea>
+                                </div>
+
+                                <div class="form-row mx-n3 local-studybuddy-form-row">
+                                    <div class="form-group col-md-6 px-3 local-studybuddy-field">
+                                        <label class="d-block mb-2 local-studybuddy-label" for="id_teacher_nquestions">{{nquestionslabel}}</label>
+                                        <input
+                                            type="number"
+                                            id="id_teacher_nquestions"
+                                            name="nquestions"
+                                            class="form-control local-studybuddy-input"
+                                            value="{{defaultnquestions}}"
+                                            min="{{minimumquizquestions}}"
+                                            max="10"
+                                            data-min-quiz="{{minimumquizquestions}}"
+                                            data-min-flashcards="{{minimumflashcards}}">
+                                    </div>
+                                    <div class="form-group col-md-6 px-3 local-studybuddy-field">
+                                        <label class="d-block mb-2 local-studybuddy-label" for="id_teacher_difficulty">{{difficultylabel}}</label>
+                                        <select id="id_teacher_difficulty" name="difficulty" class="form-control local-studybuddy-input">
+                                            {{#difficulties}}
+                                                <option value="{{value}}" {{#selected}}selected{{/selected}}>{{label}}</option>
+                                            {{/difficulties}}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex flex-wrap align-items-center mt-4 local-studybuddy-action-row">
+                                    <button
+                                        type="submit"
+                                        class="btn btn-primary btn-lg d-inline-flex align-items-center justify-content-center px-4 rounded local-studybuddy-primary-btn local-studybuddy-loading-button"
+                                        data-loading-text="{{generatingbutton}}"
+                                        {{#generationdisabled}}disabled aria-disabled="true"{{/generationdisabled}}>
+                                        <span class="spinner-border spinner-border-sm local-studybuddy-button-spinner" aria-hidden="true"></span>
+                                        <span class="local-studybuddy-button-label">{{generatebutton}}</span>
+                                    </button>
+                                    <div class="local-studybuddy-action-hint">{{generatehint}}</div>
+                                </div>
+                            </form>
+                        </div>
+                </div>
+        {{/showgenerate}}
+
+                </div>
+                <div class="col-12 col-lg-4 d-flex flex-column w-100">
+                    {{{recentdraftshtml}}}
+                </div>
+            </div>
+        {{/showreview}}
+
+        {{#showreview}}
+            <div class="d-block local-studybuddy-tab-panel active">
+                {{^showreviewquestionpreview}}
+                    {{#canbacktogenerate}}
+                        <a href="{{generatetaburl}}" class="d-inline-flex align-items-center mb-3 local-studybuddy-back-link">
+                            {{#pix}}t/left, core{{/pix}}
+                            <span class="ml-1">{{backtogeneratelabel}}</span>
+                        </a>
+                    {{/canbacktogenerate}}
+                {{/showreviewquestionpreview}}
+                <div class="mt-1 p-0 border-0 rounded-0 bg-transparent local-studybuddy-review-shell">
+                    <div class="row align-items-start">
+                    <div class="col-12 {{#showreviewrecentdrafts}}col-lg-8 mb-4 mb-lg-0{{/showreviewrecentdrafts}} d-flex align-self-stretch">
+                            {{{drafteditorhtml}}}
+                        </div>
+                        {{#showreviewrecentdrafts}}
+                            <div class="col-12 col-lg-4 d-flex align-self-start w-100">
+                                {{{recentdraftshtml}}}
+                            </div>
+                        {{/showreviewrecentdrafts}}
+                    </div>
+                </div>
+            </div>
+        {{/showreview}}
+    </div>
+
+</div>

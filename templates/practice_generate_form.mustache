@@ -1,0 +1,102 @@
+{{!
+This file is part of Moodle - http://moodle.org/
+
+Moodle is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Moodle is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+@package   local_studybuddy
+@copyright 2026 Università degli Studi di Ferrara - Unife - Unife
+@author    Andrea Bertelli <andrea.bertelli@unife.it>
+@license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+
+{{!
+    @template local_studybuddy/practice_generate_form
+
+    Student practice generation form.
+}}
+<div class="p-3 border rounded bg-white local-studybuddy-panel mb-0">
+    <div class="d-flex align-items-center mb-4">
+        <h2 class="m-0 local-studybuddy-section-title">{{generateheading}}</h2>
+    </div>
+
+    <form method="post" class="local-studybuddy-form" data-studybuddy-loading-form="generate">
+        <input type="hidden" name="courseid" value="{{courseid}}">
+        <input type="hidden" name="sesskey" value="{{sesskey}}">
+        <input type="hidden" name="action" value="generate">
+
+        {{#generationdisabled}}
+            <div class="alert alert-warning" role="alert">{{generationdisabledmessage}}</div>
+        {{/generationdisabled}}
+
+        <fieldset class="mb-4 local-studybuddy-field">
+            <legend class="d-block mb-2 local-studybuddy-label">{{activitytypelabel}}</legend>
+            <div class="row">
+                {{#activitytypes}}
+                    <div class="col-6 col-md-4 mb-2 mb-md-0">
+                        <input
+                            type="radio"
+                            id="id_activitytype_{{value}}"
+                            name="activitytype"
+                            value="{{value}}"
+                            class="sr-only local-studybuddy-activity-input"
+                            data-region="practice-activity-type"
+                            {{#selected}}checked{{/selected}}>
+                        <label class="d-flex flex-column h-100 p-3 border rounded local-studybuddy-activity-choice" for="id_activitytype_{{value}}">
+                            <span class="d-inline-flex align-items-center justify-content-center mb-3 rounded-circle local-studybuddy-card-icon-primary local-studybuddy-activity-choice-icon" aria-hidden="true">
+                                {{#isquiz}}{{#pix}}i/activities, core{{/pix}}{{/isquiz}}
+                                {{#isflashcards}}<i class="fa fa-flash" aria-hidden="true"></i>{{/isflashcards}}
+                                {{#isconceptmap}}<i class="fa fa-sitemap" aria-hidden="true"></i>{{/isconceptmap}}
+                            </span>
+                            <span class="font-weight-bold text-dark">{{label}}</span>
+                            <span class="small text-muted mt-1">{{description}}</span>
+                        </label>
+                    </div>
+                {{/activitytypes}}
+            </div>
+        </fieldset>
+
+        <div class="form-group local-studybuddy-field">
+            <label class="d-block mb-2 local-studybuddy-label" for="id_query">{{querylabel}}</label>
+            <textarea id="id_query" name="query" class="form-control local-studybuddy-input local-studybuddy-textarea" rows="3" placeholder="{{queryplaceholder}}" required></textarea>
+        </div>
+
+        <div class="row align-items-end local-studybuddy-form-row" data-region="practice-dynamic-options">
+            <div class="form-group col-12 col-md-6 local-studybuddy-field" data-practice-option="nquestions">
+                <label class="d-block mb-2 local-studybuddy-label" for="id_nquestions">{{nquestionslabel}}</label>
+                <input type="number" id="id_nquestions" name="nquestions" class="form-control local-studybuddy-input" value="{{defaultnquestions}}" min="1" max="10">
+            </div>
+            <div class="form-group col-12 col-md-6 local-studybuddy-field" data-practice-option="difficulty">
+                <label class="d-block mb-2 local-studybuddy-label" for="id_difficulty">{{difficultylabel}}</label>
+                <select id="id_difficulty" name="difficulty" class="form-control local-studybuddy-input">
+                    {{#difficulties}}
+                        <option value="{{value}}" {{#selected}}selected{{/selected}}>{{label}}</option>
+                    {{/difficulties}}
+                </select>
+            </div>
+        </div>
+
+        <div class="d-flex flex-wrap align-items-center mt-4 local-studybuddy-action-row">
+            <button
+                type="submit"
+                class="btn btn-primary btn-lg d-inline-flex align-items-center justify-content-center px-4 rounded local-studybuddy-primary-btn local-studybuddy-loading-button"
+                data-loading-text="{{generatingbutton}}"
+                {{#generationdisabled}}disabled aria-disabled="true"{{/generationdisabled}}>
+                <span class="spinner-border spinner-border-sm local-studybuddy-button-spinner" aria-hidden="true"></span>
+                <span class="local-studybuddy-button-label">{{generatebutton}}</span>
+            </button>
+            <div class="local-studybuddy-action-hint">{{generatehint}}</div>
+        </div>
+    </form>
+
+</div>

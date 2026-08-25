@@ -1,0 +1,126 @@
+{{!
+This file is part of Moodle - http://moodle.org/
+
+Moodle is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Moodle is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+@package   local_studybuddy
+@copyright 2026 Università degli Studi di Ferrara - Unife - Unife
+@author    Andrea Bertelli <andrea.bertelli@unife.it>
+@license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+
+{{!
+    @template local_studybuddy/practice_quiz
+
+    Interactive or preview quiz block.
+
+    Context variables required for this template:
+    * hasquestions
+    * interactive
+    * showinstructions
+    * instructionsmessage
+    * showsummary
+    * summarymessage
+    * courseid
+    * practiceid
+    * questions
+    * submitlabel
+    * submitsecondary
+    * noquestionsmessage
+
+    Example context (json): {}
+}}
+<div class="local-studybuddy-practice">
+    {{^hasquestions}}
+        <div class="alert alert-warning">{{noquestionsmessage}}</div>
+    {{/hasquestions}}
+
+    {{#hasquestions}}
+        {{#showsummary}}
+            <div class="alert alert-primary">{{summarymessage}}</div>
+        {{/showsummary}}
+        {{^showsummary}}
+            <div class="alert alert-secondary">{{instructionsmessage}}</div>
+        {{/showsummary}}
+
+        {{#interactive}}
+            <form method="post">
+                <input type="hidden" name="sesskey" value="{{sesskey}}">
+                <input type="hidden" name="courseid" value="{{courseid}}">
+                <input type="hidden" name="practiceid" value="{{practiceid}}">
+                <input type="hidden" name="action" value="submitquiz">
+        {{/interactive}}
+
+        {{#questions}}
+            <div class="local-studybuddy-question-card card mb-3">
+                <div class="card-body">
+                    <h3 class="card-title mb-3 local-studybuddy-question-title">{{number}}. {{questiontext}}</h3>
+
+                    {{#showanswers}}
+                        <div class="local-studybuddy-answer-list mb-3">
+                            {{#answers}}
+                                <div class="bg-white {{classes}}">
+                                    {{#interactive}}
+                                        <input
+                                            type="radio"
+                                            class="custom-control-input"
+                                            name="{{name}}"
+                                            id="{{inputid}}"
+                                            value="{{value}}"
+                                            {{#checked}}checked{{/checked}}>
+                                        <label class="custom-control-label w-100 pl-1" for="{{inputid}}">
+                                            {{text}}
+                                            {{#showcorrectbadge}}<span class="badge badge-success rounded-pill ml-2">{{#str}} correctanswer, local_studybuddy {{/str}}</span>{{/showcorrectbadge}}
+                                            {{#showyouranswerbadge}}<span class="badge badge-danger rounded-pill ml-2">{{#str}} youranswer, local_studybuddy {{/str}}</span>{{/showyouranswerbadge}}
+                                        </label>
+                                    {{/interactive}}
+                                    {{^interactive}}
+                                        <div class="pl-1 local-studybuddy-preview-answer w-100">
+                                            {{text}}
+                                            {{#showcorrectbadge}}<span class="badge badge-success rounded-pill ml-2">{{#str}} correctanswer, local_studybuddy {{/str}}</span>{{/showcorrectbadge}}
+                                        </div>
+                                    {{/interactive}}
+                                </div>
+                            {{/answers}}
+                        </div>
+                    {{/showanswers}}
+
+                    {{#showevaluation}}
+                        <div class="{{evaluationclass}}">{{evaluationtext}}</div>
+                    {{/showevaluation}}
+
+                    {{#showfeedback}}
+                        <div class="alert alert-info mb-2">{{feedback}}</div>
+                    {{/showfeedback}}
+
+                    {{#hascitations}}
+                        <div class="small text-muted">
+                            <span class="font-weight-bold">{{#str}} citations, local_studybuddy {{/str}}:</span>
+                            {{#citations}}
+                                <span class="badge badge-secondary rounded-pill mr-1">{{label}}</span>
+                            {{/citations}}
+                        </div>
+                    {{/hascitations}}
+                </div>
+            </div>
+        {{/questions}}
+
+        {{#interactive}}
+            <button type="submit" class="btn btn-lg {{#submitsecondary}}btn-secondary{{/submitsecondary}}{{^submitsecondary}}btn-primary{{/submitsecondary}}">
+                {{submitlabel}}
+            </button>
+            </form>
+        {{/interactive}}
+    {{/hasquestions}}
+</div>
