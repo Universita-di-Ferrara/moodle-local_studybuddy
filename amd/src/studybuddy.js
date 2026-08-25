@@ -292,6 +292,33 @@ define(['core/ajax', 'core/notification', 'core/str'], function(Ajax, Notificati
     };
 
     /**
+     * Resolve the presentation for a known sync state.
+     *
+     * @param {String} state Sync state.
+     * @param {Object} status Sync status.
+     * @return {Object|null} Visible sync state, or null when unresolved.
+     */
+    var getSyncStatePresentation = function(state, status) {
+        if (['queued', 'pending'].indexOf(state) !== -1) {
+            return {type: 'info', text: uiStrings.syncqueued || '', show: true};
+        }
+
+        if (['running', 'syncing', 'in_progress'].indexOf(state) !== -1) {
+            return {type: 'info', text: uiStrings.syncrunning || '', show: true};
+        }
+
+        if (state !== 'failed') {
+            return null;
+        }
+
+        var failedText = status.lasterror ? (uiStrings.syncfailedwitherror || '').replace(
+            '%%ERROR%%',
+            status.lasterror
+        ) : uiStrings.syncfailed || '';
+        return {type: 'danger', text: failedText, show: true};
+    };
+
+    /**
      * Build the visible sync state for a page.
      *
      * @param {HTMLElement} root Root node.
@@ -302,21 +329,10 @@ define(['core/ajax', 'core/notification', 'core/str'], function(Ajax, Notificati
     var getSyncPresentation = function(root, status, isChat) {
         var state = String(status.status || 'idle');
         var technicalstatus = !isChat || root.dataset.technicalStatus === '1';
+        var statePresentation = getSyncStatePresentation(state, status);
 
-        if (state === 'queued' || state === 'pending') {
-            return {type: 'info', text: uiStrings.syncqueued || '', show: true};
-        }
-
-        if (state === 'running' || state === 'syncing' || state === 'in_progress') {
-            return {type: 'info', text: uiStrings.syncrunning || '', show: true};
-        }
-
-        if (state === 'failed') {
-            var failedText = status.lasterror ? (uiStrings.syncfailedwitherror || '').replace(
-                '%%ERROR%%',
-                status.lasterror
-            ) : uiStrings.syncfailed || '';
-            return {type: 'danger', text: failedText, show: true};
+        if (statePresentation) {
+            return statePresentation;
         }
 
         if (status.needsreindex) {
@@ -492,11 +508,23 @@ define(['core/ajax', 'core/notification', 'core/str'], function(Ajax, Notificati
             {key: 'no', component: 'moodle'}
         ]).then(function(strings) {
             Notification.confirm(strings[0], strings[1], strings[2], strings[3], function() {
-                createNewChat(config, root, messages).catch(Notification.exception);
+                clearConfirmedHistory(config, root, messages);
             });
 
             return strings;
         }).catch(Notification.exception);
+    };
+
+    /**
+     * Start a new chat after the user confirms history deletion.
+     *
+     * @param {Object} config Runtime config.
+     * @param {HTMLElement} root Chat root.
+     * @param {HTMLElement} messages Message region.
+     * @return {void}
+     */
+    var clearConfirmedHistory = function(config, root, messages) {
+        createNewChat(config, root, messages).catch(Notification.exception);
     };
 
     /**
