@@ -110,7 +110,11 @@ class chat_service {
             throw new \moodle_exception('chat:nosources', 'local_studybuddy');
         }
 
-        $answer = $this->ask_configured_provider($chat, $message);
+        try {
+            $answer = $this->ask_configured_provider($chat, $message);
+        } catch (\Throwable $exception) {
+            $this->throw_user_friendly_provider_exception($exception);
+        }
         $response = $answer['response'];
         $sources = $answer['sources'];
         $now = time();
@@ -338,6 +342,27 @@ class chat_service {
             'response' => $assistanttext,
             'sources' => $sources,
         ];
+    }
+
+    /**
+     * Converts provider failures into messages suitable for the chat UI.
+     *
+     * The original exception is retained in the server log, but provider
+     * internals and remote API diagnostics must not be shown to users.
+     *
+     * @param \Throwable $exception Provider exception.
+     * @return void
+     */
+    private function throw_user_friendly_provider_exception(\Throwable $exception): void {
+        $message = strtolower($exception->getMessage());
+        $busyindicators = ['high demand', 'rate limit', 'too many requests', '429'];
+        foreach ($busyindicators as $indicator) {
+            if (strpos($message, $indicator) !== false) {
+                throw new \moodle_exception('chat:providerbusy', 'local_studybuddy');
+            }
+        }
+
+        throw new \moodle_exception('chat:providerunavailable', 'local_studybuddy');
     }
 
     /**

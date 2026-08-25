@@ -30,7 +30,9 @@ define(['core/ajax', 'core/notification', 'core/str'], function(Ajax, Notificati
                 {key: 'syncstatus:providerchanged', component: 'local_studybuddy'},
                 {key: 'syncstatus:temporarilydisabled', component: 'local_studybuddy'},
                 {key: 'chat:syncplaceholder', component: 'local_studybuddy'},
-                {key: 'chat:responseavailable', component: 'local_studybuddy'}
+                {key: 'chat:responseavailable', component: 'local_studybuddy'},
+                {key: 'chat:providerbusy', component: 'local_studybuddy'},
+                {key: 'chat:providerunavailable', component: 'local_studybuddy'}
             ]).then(function(strings) {
                 uiStrings.sourcesused = strings[0];
                 uiStrings.welcomemessage = strings[1];
@@ -44,6 +46,8 @@ define(['core/ajax', 'core/notification', 'core/str'], function(Ajax, Notificati
                 uiStrings.syncdisabled = strings[9];
                 uiStrings.chatsyncplaceholder = strings[10];
                 uiStrings.chatresponseavailable = strings[11];
+                uiStrings.chatproviderbusy = strings[12];
+                uiStrings.chatproviderunavailable = strings[13];
                 return uiStrings;
             });
         }
@@ -156,6 +160,32 @@ define(['core/ajax', 'core/notification', 'core/str'], function(Ajax, Notificati
     };
 
     /**
+     * Check whether an Ajax error is a sanitised provider failure.
+     *
+     * @param {Object} error Ajax error.
+     * @return {Boolean}
+     */
+    var isProviderError = function(error) {
+        return error && ['chat:providerbusy', 'chat:providerunavailable'].indexOf(error.errorcode) !== -1;
+    };
+
+    /**
+     * Render a provider failure without exposing remote API diagnostics.
+     *
+     * @param {HTMLElement} messages Message region.
+     * @param {Object} error Ajax error.
+     * @param {HTMLElement} root Chat root.
+     * @return {void}
+     */
+    var showProviderError = function(messages, error, root) {
+        var message = error.errorcode === 'chat:providerbusy' ?
+            uiStrings.chatproviderbusy : uiStrings.chatproviderunavailable;
+
+        appendMessage(messages, 'assistant', message, []);
+        announce(root, message);
+    };
+
+    /**
      * Toggle the assistant typing animation.
      *
      * @param {HTMLElement} root Root node.
@@ -262,6 +292,57 @@ define(['core/ajax', 'core/notification', 'core/str'], function(Ajax, Notificati
     };
 
     /**
+     * Build the visible sync state for a page.
+     *
+     * @param {HTMLElement} root Root node.
+     * @param {Object} status Sync status.
+     * @param {Boolean} isChat Whether this is chat UI.
+     * @return {Object} Visible sync state.
+     */
+    var getSyncPresentation = function(root, status, isChat) {
+        var state = String(status.status || 'idle');
+        var technicalstatus = !isChat || root.dataset.technicalStatus === '1';
+
+        if (state === 'queued' || state === 'pending') {
+            return {type: 'info', text: uiStrings.syncqueued || '', show: true};
+        }
+
+        if (state === 'running' || state === 'syncing' || state === 'in_progress') {
+            return {type: 'info', text: uiStrings.syncrunning || '', show: true};
+        }
+
+        if (state === 'failed') {
+            var failedText = status.lasterror ? (uiStrings.syncfailedwitherror || '').replace(
+                '%%ERROR%%',
+                status.lasterror
+            ) : uiStrings.syncfailed || '';
+            return {type: 'danger', text: failedText, show: true};
+        }
+
+        if (status.needsreindex) {
+            var reindexText = technicalstatus ? (uiStrings.syncproviderchanged || '').replace(
+                '%%PROVIDER%%',
+                status.providerlabel || status.provider || ''
+            ) : uiStrings.syncdisabled || '';
+            return {type: 'info', text: reindexText, show: true};
+        }
+
+        if (Number(status.available || 0) > 0) {
+            var readyText = (uiStrings.syncready || '')
+                .replace('%%ENABLED%%', status.enabled)
+                .replace('%%READY%%', status.ready)
+                .replace('%%TOTAL%%', status.total);
+            return {type: 'success', text: readyText, show: !isChat};
+        }
+
+        return {
+            type: 'warning',
+            text: technicalstatus ? uiStrings.syncempty || '' : uiStrings.syncdisabled || '',
+            show: true
+        };
+    };
+
+    /**
      * Render current sync state.
      *
      * @param {HTMLElement} root Root node.
@@ -272,46 +353,14 @@ define(['core/ajax', 'core/notification', 'core/str'], function(Ajax, Notificati
     var applySyncStatus = function(root, status, isChat) {
         var banner = root.querySelector('[data-region="studybuddy-status"]');
         var state = String(status.status || 'idle');
-        var type = 'info';
-        var text = '';
         var active = isActiveSync(state);
-        var showBanner = !isChat;
-        var technicalstatus = !isChat || root.dataset.technicalStatus === '1';
-
-        if (state === 'queued' || state === 'pending') {
-            text = uiStrings.syncqueued || '';
-            showBanner = true;
-        } else if (state === 'running' || state === 'syncing' || state === 'in_progress') {
-            text = uiStrings.syncrunning || '';
-            showBanner = true;
-        } else if (state === 'failed') {
-            type = 'danger';
-            text = status.lasterror ? (uiStrings.syncfailedwitherror || '').replace('%%ERROR%%', status.lasterror) :
-                uiStrings.syncfailed || '';
-            showBanner = true;
-        } else if (status.needsreindex) {
-            text = technicalstatus ? (uiStrings.syncproviderchanged || '').replace(
-                    '%%PROVIDER%%',
-                    status.providerlabel || status.provider || ''
-                ) : uiStrings.syncdisabled || '';
-            showBanner = true;
-        } else if (Number(status.available || 0) > 0) {
-            type = 'success';
-            text = (uiStrings.syncready || '')
-                .replace('%%ENABLED%%', status.enabled)
-                .replace('%%READY%%', status.ready)
-                .replace('%%TOTAL%%', status.total);
-        } else {
-            type = 'warning';
-            text = technicalstatus ? uiStrings.syncempty || '' : uiStrings.syncdisabled || '';
-            showBanner = true;
-        }
+        var presentation = getSyncPresentation(root, status, isChat);
 
         if (banner) {
             banner.classList.remove('alert-info', 'alert-success', 'alert-warning', 'alert-danger', 'd-none');
-            banner.classList.add('alert-' + type);
-            banner.textContent = text;
-            banner.classList.toggle('d-none', !showBanner);
+            banner.classList.add('alert-' + presentation.type);
+            banner.textContent = presentation.text;
+            banner.classList.toggle('d-none', !presentation.show);
         }
 
         setSyncButtonsLoading(root, active);
@@ -389,6 +438,46 @@ define(['core/ajax', 'core/notification', 'core/str'], function(Ajax, Notificati
     };
 
     /**
+     * Start a new temporary chat and reset its visible messages.
+     *
+     * @param {Object} config Runtime config.
+     * @param {HTMLElement} root Root node.
+     * @param {HTMLElement} messages Message region.
+     * @return {Promise} Chat creation request.
+     */
+    var createNewChat = function(config, root, messages) {
+        return Ajax.call([{
+            methodname: 'local_studybuddy_create_chat',
+            args: {courseid: config.courseid}
+        }])[0].then(function(response) {
+            config.chatid = Number(response.chatid || 0);
+            messages.innerHTML = '';
+            appendWelcomeMessage(messages, root);
+            return response;
+        });
+    };
+
+    /**
+     * Load temporary chat history.
+     *
+     * @param {Object} config Runtime config.
+     * @param {HTMLElement} messages Message region.
+     * @return {Promise} History request.
+     */
+    var loadChatHistory = function(config, messages) {
+        return Ajax.call([{
+            methodname: 'local_studybuddy_get_history',
+            args: {chatid: config.chatid}
+        }])[0].then(function(response) {
+            response.messages.forEach(function(message) {
+                appendMessage(messages, message.role, message.content, message.sources, message.contentformat === 1);
+            });
+
+            return response;
+        });
+    };
+
+    /**
      * Clear the visible history by starting a new active chat.
      *
      * @param {Object} config Runtime config.
@@ -403,15 +492,7 @@ define(['core/ajax', 'core/notification', 'core/str'], function(Ajax, Notificati
             {key: 'no', component: 'moodle'}
         ]).then(function(strings) {
             Notification.confirm(strings[0], strings[1], strings[2], strings[3], function() {
-                Ajax.call([{
-                    methodname: 'local_studybuddy_create_chat',
-                    args: {courseid: config.courseid}
-                }])[0].then(function(response) {
-                    config.chatid = Number(response.chatid || 0);
-                    messages.innerHTML = '';
-                    appendWelcomeMessage(messages, root);
-                    return response;
-                }).catch(Notification.exception);
+                createNewChat(config, root, messages).catch(Notification.exception);
             });
 
             return strings;
@@ -517,17 +598,7 @@ define(['core/ajax', 'core/notification', 'core/str'], function(Ajax, Notificati
 
         loadUiStrings().then(function() {
             pollSyncStatus(config.courseid, root, true);
-
-            return Ajax.call([{
-                methodname: 'local_studybuddy_get_history',
-                args: {chatid: config.chatid}
-            }])[0].then(function(response) {
-                response.messages.forEach(function(message) {
-                    appendMessage(messages, message.role, message.content, message.sources, message.contentformat === 1);
-                });
-
-                return response;
-            });
+            return loadChatHistory(config, messages);
         }).catch(Notification.exception);
 
         form.addEventListener('submit', function(e) {
@@ -562,7 +633,11 @@ define(['core/ajax', 'core/notification', 'core/str'], function(Ajax, Notificati
             }).catch(function(error) {
                 setTyping(root, false);
                 setChatAvailability(root, false);
-                Notification.exception(error);
+                if (isProviderError(error)) {
+                    showProviderError(messages, error, root);
+                } else {
+                    Notification.exception(error);
+                }
             });
         });
 

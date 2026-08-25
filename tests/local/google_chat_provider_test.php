@@ -14,7 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-namespace local_studybuddy\local\provider\google;
+namespace local_studybuddy\local;
+
+use local_studybuddy\local\provider\google\google_chat_provider;
+use local_studybuddy\local\provider\google\google_client;
 
 /**
  * Tests the Gemini chat request and grounding response contract without network access.
@@ -25,15 +28,16 @@ namespace local_studybuddy\local\provider\google;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers \local_studybuddy\local\provider\google\google_chat_provider
  */
-final class google_chat_provider_test extends \basic_testcase {
+final class google_chat_provider_test extends \advanced_testcase {
     /**
      * Tests the request body sent to generateContent.
      *
      * @return void
      */
     public function test_builds_file_search_request(): void {
+        $this->resetAfterTest();
         set_config('googlegenerationmodel', 'gemini-test', 'local_studybuddy');
-        $client = new class('test-key', 'https://example.test') extends google_client {
+        $client = new class ('test-key', 'https://example.test') extends google_client {
             /** @var array Captured request. */
             public array $captured = [];
 

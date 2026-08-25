@@ -84,7 +84,8 @@
 
 .local-studybuddy-message-content {
     flex: 0 1 auto;
-    max-width: min(92%, 56rem);
+    width: 92%;
+    max-width: 56rem;
 }
 
 .local-studybuddy-message-text-bubble {
@@ -216,6 +217,8 @@
     min-height: 0;
 }
 
+/* Mind Elixir exposes these custom elements as part of its public DOM. */
+/* stylelint-disable selector-type-no-unknown */
 .local-studybuddy-mindmap-canvas .map-container .map-canvas me-nodes {
     min-width: 0;
     min-height: 0;
@@ -233,6 +236,7 @@
 .local-studybuddy-mindmap-canvas me-root me-tpc {
     font-weight: 700;
 }
+/* stylelint-enable selector-type-no-unknown */
 
 .local-studybuddy-mindmap-topic-title {
     font-size: 1.08rem;
@@ -362,10 +366,9 @@
     .local-studybuddy-page *::before,
     .local-studybuddy-shell *::after,
     .local-studybuddy-page *::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        scroll-behavior: auto !important;
-        transition-duration: 0.01ms !important;
+        animation: none;
+        scroll-behavior: auto;
+        transition: none;
     }
 }
 
@@ -858,12 +861,14 @@
 
 .local-studybuddy-answer-correct-radio:checked {
     border-color: var(--studybuddy-accent);
-    background: radial-gradient(
-        circle at center,
-        var(--studybuddy-accent) 0,
-        var(--studybuddy-accent) 0.3rem,
-        transparent 0.32rem
-    ), #fff;
+    background:
+        radial-gradient(
+            circle at center,
+            var(--studybuddy-accent) 0,
+            var(--studybuddy-accent) 0.3rem,
+            transparent 0.32rem
+        ),
+        #fff;
 }
 
 .local-studybuddy-answer-correct-radio:focus-visible {

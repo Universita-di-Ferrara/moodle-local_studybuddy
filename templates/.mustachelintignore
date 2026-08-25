@@ -1,0 +1,2 @@
+# This partial intentionally renders a list item and is validated in its parent outline.
+conceptmap_node.mustache
