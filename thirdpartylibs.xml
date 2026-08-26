@@ -2,6 +2,7 @@
 <thirdpartylibs>
     <library>
         <name>Mind Elixir</name>
+        <location>lib/mindelixir</location>
         <version>5.13.0</version>
         <license>MIT</license>
         <licenseurl>https://opensource.org/licenses/MIT</licenseurl>
