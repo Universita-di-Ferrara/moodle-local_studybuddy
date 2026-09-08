@@ -6,7 +6,8 @@
  * @author     Andrea Bertelli <andrea.bertelli@unife.it>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-define(['core/ajax', 'core/notification', 'core/str'], function(Ajax, Notification, Str) {
+define(['core/ajax', 'core/notification', 'core/str', 'core/templates'],
+        function(Ajax, Notification, Str, Templates) {
     var pollTimers = {};
     var uiStrings = {};
     var uiStringsPromise = null;
@@ -56,21 +57,6 @@ define(['core/ajax', 'core/notification', 'core/str'], function(Ajax, Notificati
     };
 
     /**
-     * Escape HTML for local rendering.
-     *
-     * @param {String} text Raw text.
-     * @return {String}
-     */
-    var escapeHtml = function(text) {
-        return String(text || '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-    };
-
-    /**
      * Normalise Moodle js_call_amd arguments.
      *
      * @param {Object|Number} configOrCourseId Config object or course id.
@@ -89,6 +75,53 @@ define(['core/ajax', 'core/notification', 'core/str'], function(Ajax, Notificati
     };
 
     /**
+     * Build the context for a chat message template.
+     *
+     * @param {String} role Role.
+     * @param {String} content Content.
+     * @param {Array} sources Sources.
+     * @param {Boolean} formatted Whether content is Moodle-generated safe HTML.
+     * @return {Object} Template context.
+     */
+    var getMessageContext = function(role, content, sources, formatted) {
+        var messageRole = role === 'user' ? 'user' : 'assistant';
+        var messageSources = Array.isArray(sources) ? sources : [];
+        return {
+            role: messageRole,
+            alignment: messageRole === 'user' ? 'align-self-end' : 'align-self-start',
+            formatted: Boolean(formatted),
+            content: String(content || ''),
+            hassources: messageSources.length > 0,
+            sourceslabel: uiStrings.sourcesused || '',
+            sources: messageSources.map(function(source, index) {
+                return {
+                    label: String(source.title || source.filename || ''),
+                    spaced: index > 0
+                };
+            })
+        };
+    };
+
+    /**
+     * Append rendered message contents to the message region.
+     *
+     * @param {HTMLElement} messagesBox Message region.
+     * @param {Object} result Rendered template result.
+     * @return {HTMLElement|null} Appended message node.
+     */
+    var appendRenderedMessage = function(messagesBox, result) {
+        var nodes = Templates.appendNodeContents(messagesBox, result.html, result.js);
+        var item = nodes && nodes.length ? nodes[0] : messagesBox.lastElementChild;
+
+        if (!item) {
+            return null;
+        }
+
+        messagesBox.scrollTop = messagesBox.scrollHeight;
+        return item;
+    };
+
+    /**
      * Render one message.
      *
      * @param {HTMLElement} messagesBox Message region.
@@ -96,67 +129,14 @@ define(['core/ajax', 'core/notification', 'core/str'], function(Ajax, Notificati
      * @param {String} content Content.
      * @param {Array} sources Sources.
      * @param {Boolean} formatted Whether content is Moodle-generated safe HTML.
+     * @return {Promise} Template rendering promise.
      */
     var appendMessage = function(messagesBox, role, content, sources, formatted) {
-        var item = document.createElement('div');
-        var alignment = role === 'user' ? 'align-self-end' : 'align-self-start';
+        var context = getMessageContext(role, content, sources, formatted);
 
-        item.className = 'local-studybuddy-message local-studybuddy-message-' + role +
-            ' entry-animation d-flex mb-3 ' + alignment;
-
-        var html = '<div class="local-studybuddy-message-content">' +
-            '<div class="d-inline-block mw-100 p-3 border-0 rounded shadow-sm local-studybuddy-message-text-bubble">' +
-            '<div class="local-studybuddy-message-text text-break">' +
-            (formatted ? String(content || '') : escapeHtml(content).replace(/\n/g, '<br>')) +
-            '</div>';
-
-        if (sources && sources.length) {
-            html += '<div class="mt-2 p-3 border rounded bg-white local-studybuddy-message-sources">' +
-                '<div class="local-studybuddy-message-sources-title">' + escapeHtml(uiStrings.sourcesused || '') + '</div>';
-
-            html += '<ul class="mt-1 pl-4 local-studybuddy-message-source-list">';
-
-            sources.forEach(function(source, index) {
-                html += '<li class="local-studybuddy-message-source-item' + (index ? ' mt-2' : '') + '">' +
-                    '<div class="local-studybuddy-message-source-name small">' +
-                    escapeHtml(source.title || source.filename || '') +
-                    '</div></li>';
-            });
-
-            html += '</ul></div>';
-        }
-
-        html += '</div></div></div>';
-
-        item.innerHTML = html;
-        item.querySelectorAll('.local-studybuddy-message-text pre').forEach(function(element) {
-            element.classList.add('my-2', 'p-3', 'rounded', 'bg-dark', 'text-light');
+        return Templates.renderForPromise('local_studybuddy/chat_message', context).then(function(result) {
+            return appendRenderedMessage(messagesBox, result);
         });
-        item.querySelectorAll('.local-studybuddy-message-text code').forEach(function(element) {
-            if (!element.closest('pre')) {
-                element.classList.add('px-1', 'rounded', 'bg-light', 'text-dark');
-            }
-        });
-        item.querySelectorAll('.local-studybuddy-message-text ul, .local-studybuddy-message-text ol').forEach(function(element) {
-            element.classList.add('my-2', 'pl-4');
-        });
-        item.querySelectorAll('.local-studybuddy-message-text li + li').forEach(function(element) {
-            element.classList.add('mt-1');
-        });
-        var paragraphs = item.querySelectorAll('.local-studybuddy-message-text p');
-        paragraphs.forEach(function(element, index) {
-            element.classList.add('mb-3');
-            if (index === paragraphs.length - 1) {
-                element.classList.add('mb-0');
-            }
-        });
-        item.querySelectorAll('.local-studybuddy-message-text h1, .local-studybuddy-message-text h2, ' +
-            '.local-studybuddy-message-text h3, .local-studybuddy-message-text h4, ' +
-            '.local-studybuddy-message-text h5, .local-studybuddy-message-text h6').forEach(function(element) {
-            element.classList.add('mt-3', 'mb-2');
-        });
-        messagesBox.appendChild(item);
-        messagesBox.scrollTop = messagesBox.scrollHeight;
     };
 
     /**
@@ -175,14 +155,16 @@ define(['core/ajax', 'core/notification', 'core/str'], function(Ajax, Notificati
      * @param {HTMLElement} messages Message region.
      * @param {Object} error Ajax error.
      * @param {HTMLElement} root Chat root.
-     * @return {void}
+     * @return {Promise} Template rendering promise.
      */
     var showProviderError = function(messages, error, root) {
         var message = error.errorcode === 'chat:providerbusy' ?
             uiStrings.chatproviderbusy : uiStrings.chatproviderunavailable;
 
-        appendMessage(messages, 'assistant', message, []);
-        announce(root, message);
+        return appendMessage(messages, 'assistant', message, []).then(function() {
+            announce(root, message);
+            return message;
+        });
     };
 
     /**
@@ -450,7 +432,59 @@ define(['core/ajax', 'core/notification', 'core/str'], function(Ajax, Notificati
      * @param {HTMLElement} root Root node.
      */
     var appendWelcomeMessage = function(messages, root) {
-        appendMessage(messages, 'assistant', root.dataset.welcome || uiStrings.welcomemessage || '', []);
+        return appendMessage(messages, 'assistant', root.dataset.welcome || uiStrings.welcomemessage || '', []);
+    };
+
+    /**
+     * Return a value after a rendering promise completes.
+     *
+     * @param {*} value Value to return.
+     * @return {Function} Promise continuation.
+     */
+    var returnValue = function(value) {
+        return function() {
+            return value;
+        };
+    };
+
+    /**
+     * Append a message and preserve a related response value.
+     *
+     * @param {Promise} rendering Message rendering promise.
+     * @param {*} value Value to preserve.
+     * @return {Promise} Promise resolving to the preserved value.
+     */
+    var renderWithValue = function(rendering, value) {
+        return rendering.then(returnValue(value));
+    };
+
+    /**
+     * Send one chat message through the external API.
+     *
+     * @param {Object} config Runtime config.
+     * @param {String} text Message text.
+     * @return {Promise} Message request.
+     */
+    var sendChatMessage = function(config, text) {
+        return Ajax.call([{
+            methodname: 'local_studybuddy_send_message',
+            args: {
+                chatid: config.chatid,
+                message: text
+            }
+        }])[0];
+    };
+
+    /**
+     * Append an assistant response and preserve the response data.
+     *
+     * @param {HTMLElement} messages Message region.
+     * @param {Object} response Chat response.
+     * @return {Promise} Promise resolving to the response data.
+     */
+    var appendChatResponse = function(messages, response) {
+        return renderWithValue(appendMessage(messages, 'assistant', response.response, response.sources,
+            response.responseformat === 1), response);
     };
 
     /**
@@ -467,9 +501,8 @@ define(['core/ajax', 'core/notification', 'core/str'], function(Ajax, Notificati
             args: {courseid: config.courseid}
         }])[0].then(function(response) {
             config.chatid = Number(response.chatid || 0);
-            messages.innerHTML = '';
-            appendWelcomeMessage(messages, root);
-            return response;
+            messages.textContent = '';
+            return renderWithValue(appendWelcomeMessage(messages, root), response);
         });
     };
 
@@ -481,15 +514,27 @@ define(['core/ajax', 'core/notification', 'core/str'], function(Ajax, Notificati
      * @return {Promise} History request.
      */
     var loadChatHistory = function(config, messages) {
+        var historyresponse = null;
+
         return Ajax.call([{
             methodname: 'local_studybuddy_get_history',
             args: {chatid: config.chatid}
         }])[0].then(function(response) {
-            response.messages.forEach(function(message) {
-                appendMessage(messages, message.role, message.content, message.sources, message.contentformat === 1);
+            historyresponse = response;
+            return Promise.all(response.messages.map(function(message) {
+                return Templates.renderForPromise('local_studybuddy/chat_message', getMessageContext(
+                    message.role,
+                    message.content,
+                    message.sources,
+                    message.contentformat === 1
+                ));
+            }));
+        }).then(function(results) {
+            results.forEach(function(result) {
+                appendRenderedMessage(messages, result);
             });
 
-            return response;
+            return historyresponse;
         });
     };
 
@@ -641,30 +686,25 @@ define(['core/ajax', 'core/notification', 'core/str'], function(Ajax, Notificati
             input.value = '';
             resizeChatInput(input);
             setChatAvailability(root, true);
-            appendMessage(messages, 'user', text, []);
-            setTyping(root, true);
-
-            Ajax.call([{
-                methodname: 'local_studybuddy_send_message',
-                args: {
-                    chatid: config.chatid,
-                    message: text
-                }
-            }])[0].then(function(response) {
+            appendMessage(messages, 'user', text, []).then(function() {
+                setTyping(root, true);
+                return sendChatMessage(config, text);
+            }).then(function(response) {
                 setTyping(root, false);
-                appendMessage(messages, 'assistant', response.response, response.sources, response.responseformat === 1);
+                return appendChatResponse(messages, response);
+            }).then(function(response) {
                 announce(root, uiStrings.chatresponseavailable || '');
                 setChatAvailability(root, false);
                 input.focus();
-
                 return response;
             }).catch(function(error) {
                 setTyping(root, false);
                 setChatAvailability(root, false);
                 if (isProviderError(error)) {
-                    showProviderError(messages, error, root);
+                    return showProviderError(messages, error, root);
                 } else {
                     Notification.exception(error);
+                    return null;
                 }
             });
         });

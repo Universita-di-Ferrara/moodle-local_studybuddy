@@ -6,22 +6,7 @@
  * @author     Andrea Bertelli <andrea.bertelli@unife.it>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-define([], function() {
-    /**
-     * Escape HTML.
-     *
-     * @param {String} value Raw value.
-     * @return {String}
-     */
-    var escapeHtml = function(value) {
-        return String(value || '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-    };
-
+define(['core/templates'], function(Templates) {
     /**
      * Decode HTML entities from a data attribute value.
      *
@@ -46,6 +31,7 @@ define([], function() {
             var cards = [];
             var index = 0;
             var revealed = false;
+            var renderSequence = 0;
 
             try {
                 cards = JSON.parse(decodeHtml(container.dataset.cards || '[]'));
@@ -58,8 +44,7 @@ define([], function() {
             var front = container.querySelector('[data-region="flashcard-front"]');
             var back = container.querySelector('[data-region="flashcard-back"]');
             var answer = container.querySelector('[data-region="flashcard-answer"]');
-            var hint = container.querySelector('[data-region="flashcard-hint"]');
-            var citations = container.querySelector('[data-region="flashcard-citations"]');
+            var meta = container.querySelector('[data-region="flashcard-meta"]');
             var revealButton = container.querySelector('[data-action="reveal-answer"]');
             var previousButton = container.querySelector('[data-action="previous-card"]');
             var nextButton = container.querySelector('[data-action="next-card"]');
@@ -72,32 +57,35 @@ define([], function() {
                 return;
             }
 
+            var renderMeta = function(card, sequence) {
+                var cardCitations = Array.isArray(card.citations) ? card.citations : [];
+                var context = {
+                    hashint: Boolean(card.hint),
+                    hintlabel: hintLabel,
+                    hint: String(card.hint || ''),
+                    hascitations: cardCitations.length > 0,
+                    citationslabel: citationsLabel,
+                    citations: cardCitations.map(function(citation) {
+                        return {label: String(citation.label || '')};
+                    })
+                };
+
+                return Templates.renderForPromise('local_studybuddy/flashcard_meta', context).then(function(result) {
+                    if (sequence === renderSequence) {
+                        Templates.replaceNodeContents(meta, result.html, result.js);
+                    }
+                    return result;
+                });
+            };
+
             var render = function() {
                 var card = cards[index] || {};
+                var sequence = ++renderSequence;
 
                 revealed = false;
                 progress.textContent = card.progresslabel || ('Flashcard ' + (index + 1) + ' of ' + cards.length);
-                front.innerHTML = escapeHtml(card.front);
-                answer.innerHTML = escapeHtml(card.back).replace(/\n/g, '<br>');
-
-                if (card.hint) {
-                    hint.classList.remove('d-none');
-                    hint.innerHTML = '<strong>' + escapeHtml(hintLabel) + ':</strong> ' + escapeHtml(card.hint);
-                } else {
-                    hint.classList.add('d-none');
-                    hint.innerHTML = '';
-                }
-
-                if (card.citations && card.citations.length) {
-                    citations.classList.remove('d-none');
-                    citations.innerHTML = '<strong>' + escapeHtml(citationsLabel) + '</strong> ' +
-                        card.citations.map(function(citation) {
-                        return '<span class="badge badge-light rounded-pill ml-1">' + escapeHtml(citation.label) + '</span>';
-                    }).join('');
-                } else {
-                    citations.classList.add('d-none');
-                    citations.innerHTML = '';
-                }
+                front.textContent = String(card.front || '');
+                answer.textContent = String(card.back || '');
 
                 back.classList.add('d-none');
                 revealButton.classList.remove('d-none');
@@ -105,6 +93,8 @@ define([], function() {
 
                 previousButton.disabled = index === 0;
                 nextButton.disabled = index === cards.length - 1;
+
+                return renderMeta(card, sequence);
             };
 
             revealButton.addEventListener('click', function() {
@@ -116,18 +106,18 @@ define([], function() {
             previousButton.addEventListener('click', function() {
                 if (index > 0) {
                     index--;
-                    render();
+                    render().catch(window.console.error);
                 }
             });
 
             nextButton.addEventListener('click', function() {
                 if (index < cards.length - 1) {
                     index++;
-                    render();
+                    render().catch(window.console.error);
                 }
             });
 
-            render();
+            render().catch(window.console.error);
         });
     };
 
