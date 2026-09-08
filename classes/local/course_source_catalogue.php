@@ -57,6 +57,12 @@ class course_source_catalogue {
         $ready = [];
         $seenhashes = [];
         $seencontenthashes = [];
+        $existingbyhash = [];
+        $existingrecords = $DB->get_records('local_studybuddy_documents', ['courseid' => $courseid]);
+
+        foreach ($existingrecords as $record) {
+            $existingbyhash[(string)$record->sourcehash] = $record;
+        }
 
         foreach ($documents as $document) {
             $sourcehash = (string)$document['sourcehash'];
@@ -64,11 +70,7 @@ class course_source_catalogue {
                 ? 'content:' . $document['contenthash']
                 : 'text:' . $document['texthash'];
             $seenhashes[$sourcehash] = true;
-
-            $existing = $DB->get_record('local_studybuddy_documents', [
-                'courseid' => $courseid,
-                'sourcehash' => $sourcehash,
-            ]);
+            $existing = $existingbyhash[$sourcehash] ?? null;
 
             if (isset($seencontenthashes[$contentkey])) {
                 if ($existing) {
@@ -83,7 +85,7 @@ class course_source_catalogue {
             $seencontenthashes[$contentkey] = true;
         }
 
-        $this->mark_missing_sources_stale($courseid, array_keys($seenhashes));
+        $this->mark_missing_sources_stale(array_keys($seenhashes), $existingrecords);
 
         return $ready;
     }
@@ -148,15 +150,13 @@ class course_source_catalogue {
     /**
      * Marks records no longer discovered in Moodle as stale.
      *
-     * @param int $courseid Course id.
      * @param string[] $seenhashes Current source hashes.
+     * @param \stdClass[] $existingrecords Existing course source records.
      * @return void
      */
-    private function mark_missing_sources_stale(int $courseid, array $seenhashes): void {
-        global $DB;
-
+    private function mark_missing_sources_stale(array $seenhashes, array $existingrecords): void {
         $seen = array_fill_keys($seenhashes, true);
-        foreach ($DB->get_records('local_studybuddy_documents', ['courseid' => $courseid]) as $record) {
+        foreach ($existingrecords as $record) {
             if (!isset($seen[(string)$record->sourcehash])) {
                 $this->mark_stale($record);
             }
