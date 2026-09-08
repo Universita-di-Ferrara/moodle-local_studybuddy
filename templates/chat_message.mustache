@@ -1,0 +1,67 @@
+{{!
+This file is part of Moodle - http://moodle.org/
+
+Moodle is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Moodle is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+@package   local_studybuddy
+@copyright 2026 Università degli Studi di Ferrara - Unife
+@author    Andrea Bertelli <andrea.bertelli@unife.it>
+@license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template local_studybuddy/chat_message
+
+    Renders one chat message and its source references.
+
+    Context variables required for this template:
+        * role - user or assistant
+        * alignment - Bootstrap alignment class
+        * formatted - boolean, whether content contains safe Moodle HTML
+        * content - message content
+        * hassources - boolean, whether source references are available
+        * sourceslabel - source section label
+        * sources - list of source references with label and spaced
+
+    Example context (json):
+    {
+        "role": "assistant",
+        "alignment": "align-self-start",
+        "formatted": false,
+        "content": "Answer",
+        "hassources": true,
+        "sourceslabel": "Sources used",
+        "sources": [
+            {"label": "Course document", "spaced": false}
+        ]
+    }
+}}
+<div class="local-studybuddy-message local-studybuddy-message-{{role}} entry-animation d-flex mb-3 {{alignment}}">
+    <div class="local-studybuddy-message-content">
+        <div class="d-inline-block mw-100 p-3 border-0 rounded shadow-sm local-studybuddy-message-text-bubble">
+            <div class="local-studybuddy-message-text text-break{{^formatted}} local-studybuddy-message-text-plain{{/formatted}}">{{#formatted}}{{{content}}}{{/formatted}}{{^formatted}}{{content}}{{/formatted}}</div>
+            {{#hassources}}
+            <div class="mt-2 p-3 border rounded bg-white local-studybuddy-message-sources">
+                <div class="local-studybuddy-message-sources-title">{{sourceslabel}}</div>
+                <ul class="mt-1 pl-4 local-studybuddy-message-source-list">
+                    {{#sources}}
+                    <li class="local-studybuddy-message-source-item{{#spaced}} mt-2{{/spaced}}">
+                        <div class="local-studybuddy-message-source-name small">{{label}}</div>
+                    </li>
+                    {{/sources}}
+                </ul>
+            </div>
+            {{/hassources}}
+        </div>
+    </div>
+</div>
