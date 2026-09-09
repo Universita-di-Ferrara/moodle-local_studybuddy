@@ -47,8 +47,6 @@ $PAGE->set_course($course);
 $PAGE->set_url(new moodle_url('/local/studybuddy/chat.php', ['courseid' => $courseid]));
 $PAGE->set_title(get_string('chatheading', 'local_studybuddy'));
 $PAGE->set_heading(format_string($course->fullname));
-$PAGE->requires->css(new moodle_url('/local/studybuddy/styles.css'));
-
 $chat = (new chat_service())->get_or_create_chat($courseid, (int)$USER->id);
 $status = (new source_service())->get_sync_status($courseid, (int)$USER->id);
 $technicalstatus = has_any_capability([
