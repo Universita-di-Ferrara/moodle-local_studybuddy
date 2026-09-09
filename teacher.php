@@ -433,7 +433,6 @@ $PAGE->set_course($course);
 $PAGE->set_url(new moodle_url('/local/studybuddy/teacher.php', ['courseid' => $courseid]));
 $PAGE->set_title(get_string('teacherheading', 'local_studybuddy'));
 $PAGE->set_heading(format_string($course->fullname));
-$PAGE->requires->css(new moodle_url('/local/studybuddy/styles.css'));
 $PAGE->requires->js_call_amd('local_studybuddy/studybuddy', 'initTeacher');
 
 $message = '';
