@@ -579,14 +579,6 @@
     opacity: 0.8;
 }
 
-.local-studybuddy-button-spinner {
-    display: none;
-}
-
-.local-studybuddy-loading-button.is-loading .local-studybuddy-button-spinner {
-    display: inline-block;
-}
-
 .local-studybuddy-history-main,
 .local-studybuddy-history-actions {
     gap: 0.7rem;

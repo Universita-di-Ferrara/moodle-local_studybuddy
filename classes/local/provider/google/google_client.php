@@ -16,6 +16,10 @@
 
 namespace local_studybuddy\local\provider\google;
 
+defined('MOODLE_INTERNAL') || die();
+
+require_once($CFG->libdir . '/filelib.php');
+
 /**
  * Minimal REST client for Google Gemini APIs used by local_studybuddy.
  *
@@ -101,30 +105,38 @@ class google_client {
     public function raw_request(string $method, string $path, ?array $json = null, array $headers = []): string {
         $this->require_apikey();
 
-        $curl = curl_init($this->url('/v1beta' . $path));
+        $url = $this->url('/v1beta' . $path);
         $httpheaders = array_merge([
             'Content-Type: application/json',
             'X-Goog-Api-Key: ' . $this->apikey,
             'X-Client-Request-Id: local-studybuddy-' . bin2hex(random_bytes(8)),
         ], $headers);
-
-        curl_setopt_array($curl, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CUSTOMREQUEST => $method,
-            CURLOPT_HTTPHEADER => $httpheaders,
-        ]);
-
+        $body = '';
         if ($json !== null) {
-            curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($json, JSON_UNESCAPED_UNICODE));
+            $body = json_encode($json, JSON_UNESCAPED_UNICODE);
+            if ($body === false) {
+                throw new \moodle_exception('invalidjson', 'local_studybuddy');
+            }
         }
 
-        $raw = curl_exec($curl);
-        $status = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        $error = curl_error($curl);
-        curl_close($curl);
+        $curl = new \curl(['proxy' => true]);
+        $curl->setHeader($httpheaders);
+        $method = strtoupper($method);
+        if ($method === 'GET') {
+            $raw = $curl->get($url);
+        } else if ($method === 'DELETE') {
+            $raw = $curl->delete($url, [], ['CURLOPT_USERPWD' => '']);
+        } else if ($method === 'POST') {
+            $raw = $curl->post($url, $body);
+        } else {
+            $raw = $curl->post($url, $body, ['CURLOPT_CUSTOMREQUEST' => $method]);
+        }
 
-        if ($raw === false) {
-            throw new \moodle_exception('curlerror', 'local_studybuddy', '', $error);
+        $status = (int)($curl->get_info()['http_code'] ?? 0);
+        $error = (string)($curl->error ?? '');
+
+        if ($curl->get_errno() !== 0 || $status === 0) {
+            throw new \moodle_exception('curlerror', 'local_studybuddy', '', $error ?: $raw);
         }
 
         if ($status >= 400) {
@@ -172,46 +184,39 @@ class google_client {
         }
 
         // Gemini File Search expects a resumable upload, not multipart form data.
-        $startcurl = curl_init($this->url('/upload/v1beta/' . $store . ':uploadToFileSearchStore'));
-        curl_setopt_array($startcurl, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HEADER => true,
-            CURLOPT_POST => true,
-            CURLOPT_HTTPHEADER => [
-                'Accept: application/json',
-                'Content-Type: application/json',
-                'X-Goog-Api-Key: ' . $this->apikey,
-                'X-Goog-Upload-Protocol: resumable',
-                'X-Goog-Upload-Command: start',
-                'X-Goog-Upload-Header-Content-Length: ' . $filesize,
-                'X-Goog-Upload-Header-Content-Type: ' . $mimetype,
-                'X-Client-Request-Id: local-studybuddy-' . bin2hex(random_bytes(8)),
-            ],
-            CURLOPT_POSTFIELDS => json_encode($metadata, JSON_UNESCAPED_UNICODE),
+        $startcurl = new \curl(['proxy' => true]);
+        $startcurl->setHeader([
+            'Accept: application/json',
+            'Content-Type: application/json',
+            'X-Goog-Api-Key: ' . $this->apikey,
+            'X-Goog-Upload-Protocol: resumable',
+            'X-Goog-Upload-Command: start',
+            'X-Goog-Upload-Header-Content-Length: ' . $filesize,
+            'X-Goog-Upload-Header-Content-Type: ' . $mimetype,
+            'X-Client-Request-Id: local-studybuddy-' . bin2hex(random_bytes(8)),
         ]);
+        $startpayload = json_encode($metadata, JSON_UNESCAPED_UNICODE);
+        if ($startpayload === false) {
+            throw new \moodle_exception('invalidjson', 'local_studybuddy');
+        }
+        $startresponse = $startcurl->post(
+            $this->url('/upload/v1beta/' . $store . ':uploadToFileSearchStore'),
+            $startpayload
+        );
+        $startstatus = (int)($startcurl->get_info()['http_code'] ?? 0);
+        $starterror = (string)($startcurl->error ?? '');
 
-        $startresponse = curl_exec($startcurl);
-        $startstatus = curl_getinfo($startcurl, CURLINFO_HTTP_CODE);
-        $startheadersize = curl_getinfo($startcurl, CURLINFO_HEADER_SIZE);
-        $starterror = curl_error($startcurl);
-        curl_close($startcurl);
-
-        if ($startresponse === false) {
-            throw new \moodle_exception('curlerror', 'local_studybuddy', '', $starterror);
+        if ($startcurl->get_errno() !== 0 || $startstatus === 0) {
+            throw new \moodle_exception('curlerror', 'local_studybuddy', '', $starterror ?: $startresponse);
         }
 
-        $startbody = substr((string)$startresponse, $startheadersize);
         if ($startstatus >= 400) {
-            $decoded = json_decode($startbody, true);
-            $message = is_array($decoded) ? ($decoded['error']['message'] ?? $startbody) : $startbody;
+            $decoded = json_decode((string)$startresponse, true);
+            $message = is_array($decoded) ? ($decoded['error']['message'] ?? $startresponse) : $startresponse;
             throw new \moodle_exception('googleapierror', 'local_studybuddy', '', $message);
         }
 
-        $uploadurl = '';
-        $responseheaders = substr((string)$startresponse, 0, $startheadersize);
-        if (preg_match('/^X-Goog-Upload-URL:\s*(.+)$/im', $responseheaders, $matches)) {
-            $uploadurl = trim($matches[1]);
-        }
+        $uploadurl = $this->response_header($startcurl, 'X-Goog-Upload-URL');
         if ($uploadurl === '') {
             throw new \moodle_exception('google:uploadurlmissing', 'local_studybuddy');
         }
@@ -221,30 +226,29 @@ class google_client {
             throw new \moodle_exception('google:filereaderror', 'local_studybuddy', '', $filename);
         }
 
-        $uploadcurl = curl_init($uploadurl);
-        curl_setopt_array($uploadcurl, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_UPLOAD => true,
-            CURLOPT_INFILE => $filehandle,
-            CURLOPT_INFILESIZE => $filesize,
-            CURLOPT_HTTPHEADER => [
-                'Accept: application/json',
-                'Content-Length: ' . $filesize,
-                'Content-Type: ' . $mimetype,
-                'X-Goog-Upload-Offset: 0',
-                'X-Goog-Upload-Command: upload, finalize',
-            ],
+        $uploadcurl = new \curl(['proxy' => true]);
+        $uploadcurl->setHeader([
+            'Accept: application/json',
+            'Content-Length: ' . $filesize,
+            'Content-Type: ' . $mimetype,
+            'X-Goog-Upload-Offset: 0',
+            'X-Goog-Upload-Command: upload, finalize',
         ]);
+        try {
+            $raw = $uploadcurl->post($uploadurl, '', [
+                'CURLOPT_CUSTOMREQUEST' => 'POST',
+                'CURLOPT_UPLOAD' => true,
+                'CURLOPT_INFILE' => $filehandle,
+                'CURLOPT_INFILESIZE' => $filesize,
+            ]);
+            $status = (int)($uploadcurl->get_info()['http_code'] ?? 0);
+            $error = (string)($uploadcurl->error ?? '');
+        } finally {
+            fclose($filehandle);
+        }
 
-        $raw = curl_exec($uploadcurl);
-        $status = curl_getinfo($uploadcurl, CURLINFO_HTTP_CODE);
-        $error = curl_error($uploadcurl);
-        fclose($filehandle);
-        curl_close($uploadcurl);
-
-        if ($raw === false) {
-            throw new \moodle_exception('curlerror', 'local_studybuddy', '', $error);
+        if ($uploadcurl->get_errno() !== 0 || $status === 0) {
+            throw new \moodle_exception('curlerror', 'local_studybuddy', '', $error ?: $raw);
         }
 
         $decoded = json_decode((string)$raw, true);
@@ -254,6 +258,28 @@ class google_client {
         }
 
         return $decoded;
+    }
+
+    /**
+     * Returns a response header value from a Moodle curl request.
+     *
+     * @param \curl $curl Moodle curl instance.
+     * @param string $name Header name.
+     * @return string Header value or empty string.
+     */
+    private function response_header(\curl $curl, string $name): string {
+        foreach ($curl->getResponse() as $header => $value) {
+            if (strcasecmp((string)$header, $name) !== 0) {
+                continue;
+            }
+
+            if (is_array($value)) {
+                $value = end($value);
+            }
+            return trim((string)$value);
+        }
+
+        return '';
     }
 
     /**

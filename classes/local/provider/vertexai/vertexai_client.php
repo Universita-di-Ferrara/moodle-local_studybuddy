@@ -16,6 +16,10 @@
 
 namespace local_studybuddy\local\provider\vertexai;
 
+defined('MOODLE_INTERNAL') || die();
+
+require_once($CFG->libdir . '/filelib.php');
+
 /**
  * Minimal REST client for Gemini and RAG Engine on Vertex AI.
  *
@@ -236,30 +240,38 @@ class vertexai_client {
     ): string {
         $this->require_configuration($requireprincipal);
 
-        $curl = curl_init($this->url($path));
+        $url = $this->url($path);
         $httpheaders = array_merge([
             'Content-Type: application/json',
             'X-Client-Request-Id: local-studybuddy-' . bin2hex(random_bytes(8)),
         ], $headers);
         $httpheaders = array_merge($httpheaders, $this->auth_headers());
-
-        curl_setopt_array($curl, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CUSTOMREQUEST => $method,
-            CURLOPT_HTTPHEADER => $httpheaders,
-        ]);
-
+        $body = '';
         if ($json !== null) {
-            curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($json, JSON_UNESCAPED_UNICODE));
+            $body = json_encode($json, JSON_UNESCAPED_UNICODE);
+            if ($body === false) {
+                throw new \moodle_exception('invalidjson', 'local_studybuddy');
+            }
         }
 
-        $raw = curl_exec($curl);
-        $status = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        $error = curl_error($curl);
-        curl_close($curl);
+        $curl = new \curl(['proxy' => true]);
+        $curl->setHeader($httpheaders);
+        $method = strtoupper($method);
+        if ($method === 'GET') {
+            $raw = $curl->get($url);
+        } else if ($method === 'DELETE') {
+            $raw = $curl->delete($url, [], ['CURLOPT_USERPWD' => '']);
+        } else if ($method === 'POST') {
+            $raw = $curl->post($url, $body);
+        } else {
+            $raw = $curl->post($url, $body, ['CURLOPT_CUSTOMREQUEST' => $method]);
+        }
 
-        if ($raw === false) {
-            throw new \moodle_exception('vertexaiapierror', 'local_studybuddy', '', $error);
+        $status = (int)($curl->get_info()['http_code'] ?? 0);
+        $error = (string)($curl->error ?? '');
+
+        if ($curl->get_errno() !== 0 || $status === 0) {
+            throw new \moodle_exception('vertexaiapierror', 'local_studybuddy', '', $error ?: $raw);
         }
 
         if ($status >= 400) {
@@ -294,48 +306,25 @@ class vertexai_client {
         ];
 
         $url = $this->url('/upload/v1beta1/' . $corpusname . '/ragFiles:upload');
-        debugging("local_studybuddy DEBUG: Uploading RAG file to URL: {$url}", DEBUG_DEVELOPER);
-        debugging('local_studybuddy DEBUG: Metadata payload: ' . $postfields['metadata'], DEBUG_DEVELOPER);
-        debugging("local_studybuddy DEBUG: Local file path: {$filepath} ({$mimetype})", DEBUG_DEVELOPER);
-
-        $curl = curl_init($url);
 
         $headers = array_merge([
             'Accept: application/json',
             'X-Goog-Upload-Protocol: multipart',
             'X-Client-Request-Id: local-studybuddy-' . bin2hex(random_bytes(8)),
         ], $this->auth_headers());
+        $curl = new \curl(['proxy' => true]);
+        $curl->setHeader($headers);
+        $raw = $curl->post($url, $postfields);
+        $status = (int)($curl->get_info()['http_code'] ?? 0);
+        $error = (string)($curl->error ?? '');
 
-        curl_setopt_array($curl, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_POST => true,
-            CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_POSTFIELDS => $postfields,
-        ]);
-
-        $raw = curl_exec($curl);
-        $status = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        $error = curl_error($curl);
-        curl_close($curl);
-
-        debugging("local_studybuddy DEBUG: RAG file upload HTTP status: {$status}", DEBUG_DEVELOPER);
-        if ($error) {
-            debugging("local_studybuddy DEBUG: RAG file upload cURL Error: {$error}", DEBUG_DEVELOPER);
-        } else {
-            debugging('local_studybuddy DEBUG: RAG file upload Raw Response: ' . (string)$raw, DEBUG_DEVELOPER);
-        }
-
-        if ($raw === false) {
-            throw new \moodle_exception('vertexaiapierror', 'local_studybuddy', '', $error);
+        if ($curl->get_errno() !== 0 || $status === 0) {
+            throw new \moodle_exception('vertexaiapierror', 'local_studybuddy', '', $error ?: $raw);
         }
 
         $decoded = json_decode((string)$raw, true);
         if ($status >= 400 || !is_array($decoded)) {
             $message = is_array($decoded) ? ($decoded['error']['message'] ?? $raw) : $raw;
-            debugging(
-                "local_studybuddy DEBUG: RAG file upload throwing exception with message: {$message}",
-                DEBUG_DEVELOPER
-            );
             throw new \moodle_exception('vertexaiapierror', 'local_studybuddy', '', $message);
         }
 
@@ -484,24 +473,18 @@ class vertexai_client {
             'exp' => $now + 3600,
         ], $credentials['private_key']);
 
-        $curl = curl_init($credentials['token_uri']);
-        curl_setopt_array($curl, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_POST => true,
-            CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded'],
-            CURLOPT_POSTFIELDS => http_build_query([
+        $curl = new \curl(['proxy' => true]);
+        $curl->setHeader(['Content-Type: application/x-www-form-urlencoded']);
+        $raw = $curl->post($credentials['token_uri'], http_build_query([
                 'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
                 'assertion' => $assertion,
-            ], '', '&'),
-        ]);
+            ], '', '&'));
 
-        $raw = curl_exec($curl);
-        $status = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        $error = curl_error($curl);
-        curl_close($curl);
+        $status = (int)($curl->get_info()['http_code'] ?? 0);
+        $error = (string)($curl->error ?? '');
 
-        if ($raw === false) {
-            throw new \moodle_exception('vertexaiapierror', 'local_studybuddy', '', $error);
+        if ($curl->get_errno() !== 0 || $status === 0) {
+            throw new \moodle_exception('vertexaiapierror', 'local_studybuddy', '', $error ?: $raw);
         }
 
         $decoded = json_decode((string)$raw, true);
