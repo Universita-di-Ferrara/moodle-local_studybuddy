@@ -167,13 +167,14 @@ class google_course_file_search_store_service {
             $summary['documents'] = count($documents);
             $seen = [];
             $seencontenthashes = [];
+            $existingbyhash = [];
+            foreach ($DB->get_records('local_studybuddy_store_files', ['vectorstoreid' => $store->id]) as $record) {
+                $existingbyhash[(string)$record->sourcehash] = $record;
+            }
 
             foreach ($documents as $document) {
                 $expectedcontenthash = $this->expected_upload_contenthash($document);
-                $existing = $DB->get_record('local_studybuddy_store_files', [
-                    'vectorstoreid' => $store->id,
-                    'sourcehash' => $document->sourcehash,
-                ]);
+                $existing = $existingbyhash[(string)$document->sourcehash] ?? null;
 
                 if (isset($seencontenthashes[$expectedcontenthash])) {
                     if ($existing) {
@@ -542,7 +543,7 @@ class google_course_file_search_store_service {
      */
     private function expected_upload_contenthash(\stdClass $document): string {
         $storedfile = $this->resolve_stored_file($document);
-        if ($storedfile && $this->is_pdf_file($storedfile)) {
+        if ($storedfile) {
             return (string)$storedfile->get_contenthash();
         }
 
@@ -558,18 +559,18 @@ class google_course_file_search_store_service {
      */
     private function prepare_uploadable_document(\stdClass $document, string $tmpdir): ?array {
         $storedfile = $this->resolve_stored_file($document);
-        if ($storedfile && $this->is_pdf_file($storedfile)) {
+        if ($storedfile) {
             $filename = clean_filename($storedfile->get_filename());
             if ($filename === '') {
-                $filename = $document->id . '-source.pdf';
+                $filename = $document->id . '-source.bin';
             }
-            $tmpfile = $tmpdir . '/' . uniqid('pdf_', true) . '_' . $filename;
+            $tmpfile = $tmpdir . '/' . uniqid('source_', true) . '_' . $filename;
             $storedfile->copy_content_to($tmpfile);
 
             return [
                 'path' => $tmpfile,
                 'filename' => $filename,
-                'mimetype' => 'application/pdf',
+                'mimetype' => $storedfile->get_mimetype() ?: 'application/octet-stream',
                 'contenthash' => (string)$storedfile->get_contenthash(),
             ];
         }
@@ -652,19 +653,6 @@ class google_course_file_search_store_service {
         }
 
         return null;
-    }
-
-    /**
-     * Checks whether a stored file is a PDF.
-     *
-     * @param \stored_file $storedfile Moodle file.
-     * @return bool
-     */
-    private function is_pdf_file(\stored_file $storedfile): bool {
-        $filename = strtolower($storedfile->get_filename());
-        $mimetype = strtolower($storedfile->get_mimetype());
-
-        return $mimetype === 'application/pdf' || pathinfo($filename, PATHINFO_EXTENSION) === 'pdf';
     }
 
     /**

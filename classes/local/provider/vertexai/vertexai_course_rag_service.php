@@ -190,13 +190,14 @@ class vertexai_course_rag_service {
         try {
             $seen = [];
             $seencontenthashes = [];
+            $existingbyhash = [];
+            foreach ($DB->get_records('local_studybuddy_store_files', ['vectorstoreid' => $corpus->id]) as $record) {
+                $existingbyhash[(string)$record->sourcehash] = $record;
+            }
 
             foreach ($documents as $document) {
                 $expectedcontenthash = $this->expected_upload_contenthash($document);
-                $existing = $DB->get_record('local_studybuddy_store_files', [
-                    'vectorstoreid' => $corpus->id,
-                    'sourcehash' => $document->sourcehash,
-                ]);
+                $existing = $existingbyhash[(string)$document->sourcehash] ?? null;
 
                 if (isset($seencontenthashes[$expectedcontenthash])) {
                     if ($existing) {

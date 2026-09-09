@@ -34,15 +34,35 @@ class content_extractor {
     public function extract_course(int $courseid): array {
         $documents = [];
         $modinfo = get_fast_modinfo($courseid);
+        $cms = [];
+        $instanceids = [
+            'page' => [],
+            'book' => [],
+            'label' => [],
+            'lesson' => [],
+        ];
 
         foreach ($modinfo->get_cms() as $cm) {
             if (!$cm->visible) {
                 continue;
             }
 
+            $cms[] = $cm;
+            if (array_key_exists($cm->modname, $instanceids)) {
+                $instanceids[$cm->modname][] = (int)$cm->instance;
+            }
+        }
+
+        $moduledata = $this->preload_module_data($instanceids);
+
+        foreach ($cms as $cm) {
             $context = \context_module::instance($cm->id);
-            $documents = array_merge($documents, $this->extract_module_record($courseid, $cm, $context));
-            $documents = array_merge($documents, $this->extract_module_files($courseid, $cm, $context));
+            foreach ($this->extract_module_record($courseid, $cm, $context, $moduledata) as $document) {
+                $documents[] = $document;
+            }
+            foreach ($this->extract_module_files($courseid, $cm, $context) as $document) {
+                $documents[] = $document;
+            }
         }
 
         return array_values(array_filter($documents, function (array $document): bool {
@@ -56,20 +76,20 @@ class content_extractor {
      * @param int $courseid Course id.
      * @param \cm_info $cm Course module info.
      * @param \context_module $context Module context.
+     * @param array $moduledata Preloaded module records.
      * @return array[]
      */
-    private function extract_module_record(int $courseid, \cm_info $cm, \context_module $context): array {
-        global $DB;
-
+    private function extract_module_record(
+        int $courseid,
+        \cm_info $cm,
+        \context_module $context,
+        array $moduledata
+    ): array {
         $documents = [];
-
-        if (!$DB->get_manager()->table_exists($cm->modname)) {
-            return $documents;
-        }
 
         switch ($cm->modname) {
             case 'page':
-                $page = $DB->get_record('page', ['id' => $cm->instance]);
+                $page = $moduledata['page'][$cm->instance] ?? null;
                 if ($page) {
                     $documents[] = $this->build_document(
                         $courseid,
@@ -86,8 +106,8 @@ class content_extractor {
                 break;
 
             case 'book':
-                $book = $DB->get_record('book', ['id' => $cm->instance]);
-                $chapters = $DB->get_records('book_chapters', ['bookid' => $cm->instance, 'hidden' => 0], 'pagenum');
+                $book = $moduledata['book'][$cm->instance] ?? null;
+                $chapters = $moduledata['book_chapters'][$cm->instance] ?? [];
                 foreach ($chapters as $chapter) {
                     $documents[] = $this->build_document(
                         $courseid,
@@ -104,7 +124,7 @@ class content_extractor {
                 break;
 
             case 'label':
-                $label = $DB->get_record('label', ['id' => $cm->instance]);
+                $label = $moduledata['label'][$cm->instance] ?? null;
                 if ($label) {
                     $documents[] = $this->build_document(
                         $courseid,
@@ -121,8 +141,8 @@ class content_extractor {
                 break;
 
             case 'lesson':
-                $lesson = $DB->get_record('lesson', ['id' => $cm->instance]);
-                $pages = $DB->get_records('lesson_pages', ['lessonid' => $cm->instance], 'id');
+                $lesson = $moduledata['lesson'][$cm->instance] ?? null;
+                $pages = $moduledata['lesson_pages'][$cm->instance] ?? [];
                 foreach ($pages as $page) {
                     $documents[] = $this->build_document(
                         $courseid,
@@ -140,6 +160,122 @@ class content_extractor {
         }
 
         return $documents;
+    }
+
+    /**
+     * Loads module records needed for the course in bulk.
+     *
+     * @param array[] $instanceids Instance IDs grouped by module name.
+     * @return array Preloaded module records grouped by their relation.
+     */
+    private function preload_module_data(array $instanceids): array {
+        global $DB;
+
+        $moduledata = [
+            'page' => [],
+            'book' => [],
+            'book_chapters' => [],
+            'label' => [],
+            'lesson' => [],
+            'lesson_pages' => [],
+        ];
+        $tableexists = [];
+
+        foreach (['page', 'book', 'label', 'lesson'] as $modname) {
+            $ids = array_values(array_unique($instanceids[$modname] ?? []));
+            if (!$ids) {
+                continue;
+            }
+
+            $tableexists[$modname] = $DB->get_manager()->table_exists($modname);
+            if (!$tableexists[$modname]) {
+                continue;
+            }
+
+            $moduledata[$modname] = $this->get_records_by_ids($modname, $ids);
+        }
+
+        $bookids = array_values(array_unique($instanceids['book'] ?? []));
+        if ($bookids && ($tableexists['book_chapters'] ??= $DB->get_manager()->table_exists('book_chapters'))) {
+            $chapters = $this->get_records_by_foreign_ids(
+                'book_chapters',
+                'bookid',
+                $bookids,
+                'hidden = :hidden',
+                ['hidden' => 0],
+                'bookid, pagenum'
+            );
+            foreach ($chapters as $chapter) {
+                $moduledata['book_chapters'][$chapter->bookid][] = $chapter;
+            }
+        }
+
+        $lessonids = array_values(array_unique($instanceids['lesson'] ?? []));
+        if ($lessonids && ($tableexists['lesson_pages'] ??= $DB->get_manager()->table_exists('lesson_pages'))) {
+            $pages = $this->get_records_by_foreign_ids('lesson_pages', 'lessonid', $lessonids, '', [], 'lessonid, id');
+            foreach ($pages as $page) {
+                $moduledata['lesson_pages'][$page->lessonid][] = $page;
+            }
+        }
+
+        return $moduledata;
+    }
+
+    /**
+     * Loads records whose IDs are in the supplied list.
+     *
+     * @param string $table Database table name from the supported module list.
+     * @param int[] $ids Record IDs.
+     * @return \stdClass[] Records keyed by ID.
+     */
+    private function get_records_by_ids(string $table, array $ids): array {
+        global $DB;
+
+        [$insql, $params] = $DB->get_in_or_equal($ids, SQL_PARAMS_NAMED, 'instanceid');
+
+        return $DB->get_records_sql(
+            "SELECT *
+               FROM {{$table}}
+              WHERE id {$insql}",
+            $params
+        );
+    }
+
+    /**
+     * Loads records related to any of the supplied foreign IDs.
+     *
+     * @param string $table Database table name from the supported module list.
+     * @param string $field Foreign key field from the supported module list.
+     * @param int[] $ids Foreign key IDs.
+     * @param string $extra Condition fragment using named parameters.
+     * @param array $params Additional query parameters.
+     * @param string $sort Order fields from the supported module list.
+     * @return \stdClass[] Records keyed by ID.
+     */
+    private function get_records_by_foreign_ids(
+        string $table,
+        string $field,
+        array $ids,
+        string $extra,
+        array $params,
+        string $sort
+    ): array {
+        global $DB;
+
+        [$insql, $inparams] = $DB->get_in_or_equal($ids, SQL_PARAMS_NAMED, 'foreignid');
+        $where = "{$field} {$insql}";
+        if ($extra !== '') {
+            $where .= " AND {$extra}";
+        }
+
+        $orderby = $sort === '' ? '' : " ORDER BY {$sort}";
+
+        return $DB->get_records_sql(
+            "SELECT *
+               FROM {{$table}}
+              WHERE {$where}{$orderby}",
+            $inparams + $params
+        );
     }
 
     /**
