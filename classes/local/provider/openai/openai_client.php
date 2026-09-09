@@ -16,6 +16,10 @@
 
 namespace local_studybuddy\local\provider\openai;
 
+defined('MOODLE_INTERNAL') || die();
+
+require_once($CFG->libdir . '/filelib.php');
+
 /**
  * Minimal REST client for OpenAI APIs used by local_studybuddy.
  *
@@ -106,26 +110,34 @@ class openai_client {
     public function raw_request(string $method, string $path, ?array $json = null, array $headers = []): string {
         $this->require_apikey();
 
-        $curl = curl_init($this->baseurl . $path);
+        $url = $this->baseurl . $path;
         $httpheaders = $this->headers($headers);
-
-        curl_setopt_array($curl, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CUSTOMREQUEST => $method,
-            CURLOPT_HTTPHEADER => $httpheaders,
-        ]);
-
+        $body = '';
         if ($json !== null) {
-            curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($json, JSON_UNESCAPED_UNICODE));
+            $body = json_encode($json, JSON_UNESCAPED_UNICODE);
+            if ($body === false) {
+                throw new \moodle_exception('invalidjson', 'local_studybuddy');
+            }
         }
 
-        $raw = curl_exec($curl);
-        $status = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        $error = curl_error($curl);
-        curl_close($curl);
+        $curl = new \curl(['proxy' => true]);
+        $curl->setHeader($httpheaders);
+        $method = strtoupper($method);
+        if ($method === 'GET') {
+            $raw = $curl->get($url);
+        } else if ($method === 'DELETE') {
+            $raw = $curl->delete($url, [], ['CURLOPT_USERPWD' => '']);
+        } else if ($method === 'POST') {
+            $raw = $curl->post($url, $body);
+        } else {
+            $raw = $curl->post($url, $body, ['CURLOPT_CUSTOMREQUEST' => $method]);
+        }
 
-        if ($raw === false) {
-            throw new \moodle_exception('curlerror', 'local_studybuddy', '', $error);
+        $status = (int)($curl->get_info()['http_code'] ?? 0);
+        $error = (string)($curl->error ?? '');
+
+        if ($curl->get_errno() !== 0 || $status === 0) {
+            throw new \moodle_exception('curlerror', 'local_studybuddy', '', $error ?: $raw);
         }
 
         if ($status >= 400) {
@@ -148,27 +160,20 @@ class openai_client {
     public function upload_file(string $filepath, string $purpose = 'assistants', ?string $filename = null): array {
         $this->require_apikey();
 
-        $curl = curl_init($this->baseurl . '/files');
+        $curl = new \curl(['proxy' => true]);
         $headers = $this->headers([], false);
         $postfields = [
             'purpose' => $purpose,
             'file' => new \CURLFile($filepath, null, $filename ?? basename($filepath)),
         ];
+        $curl->setHeader($headers);
+        $raw = $curl->post($this->baseurl . '/files', $postfields);
 
-        curl_setopt_array($curl, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_POST => true,
-            CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_POSTFIELDS => $postfields,
-        ]);
+        $status = (int)($curl->get_info()['http_code'] ?? 0);
+        $error = (string)($curl->error ?? '');
 
-        $raw = curl_exec($curl);
-        $status = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        $error = curl_error($curl);
-        curl_close($curl);
-
-        if ($raw === false) {
-            throw new \moodle_exception('curlerror', 'local_studybuddy', '', $error);
+        if ($curl->get_errno() !== 0 || $status === 0) {
+            throw new \moodle_exception('curlerror', 'local_studybuddy', '', $error ?: $raw);
         }
 
         $decoded = json_decode((string)$raw, true);
