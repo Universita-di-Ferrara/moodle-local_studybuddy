@@ -214,6 +214,7 @@ $string['generationstatus:pending'] = 'Generating';
 $string['generationstatus:published'] = 'Published';
 $string['generationstatus:ready'] = 'Ready';
 $string['generationstatus:reviewed'] = 'Reviewed';
+$string['generationstatus:running'] = 'Generating';
 $string['google:apikeymissing'] = 'Google Gemini API key is not configured.';
 $string['google:filereaderror'] = 'Google Gemini could not read the file "{$a}" for upload.';
 $string['google:filestorerecreated'] = 'The Google File Search store configured for this course no longer existed remotely. A new empty store was created; please re-run course indexing before relying on generated results.';

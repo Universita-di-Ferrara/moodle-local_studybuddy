@@ -380,10 +380,10 @@ function local_studybuddy_prepare_recent_drafts_for_template(
             'isquiz' => $activitytype === 'quiz',
             'isflashcards' => $activitytype === 'h5p_flashcards',
             'status' => get_string('generationstatus:' . $recentdraft->status, 'local_studybuddy'),
-            'ispending' => $recentdraft->status === 'pending',
+            'ispending' => in_array($recentdraft->status, ['pending', 'running'], true),
             'isfailed' => $recentdraft->status === 'failed',
-            'isready' => !in_array($recentdraft->status, ['pending', 'failed'], true),
-            'canreuse' => !in_array($recentdraft->status, ['pending', 'failed'], true),
+            'isready' => !in_array($recentdraft->status, ['pending', 'running', 'failed'], true),
+            'canreuse' => !in_array($recentdraft->status, ['pending', 'running', 'failed'], true),
             'timeupdated' => userdate(
                 (int)$recentdraft->timemodified,
                 get_string('strftimedatefullshort')
@@ -499,7 +499,7 @@ if ($formdata && confirm_sesskey()) {
         $draftid = required_param('draftid', PARAM_INT);
         $deleteindex = $deleteitem;
         $draft = $DB->get_record('local_studybuddy_drafts', ['id' => $draftid, 'courseid' => $courseid], '*', MUST_EXIST);
-        if ($draft->status === 'pending' || $draft->status === 'failed') {
+        if (in_array($draft->status, ['pending', 'running', 'failed'], true)) {
             throw new moodle_exception('generationnotready', 'local_studybuddy');
         }
         $original = json_decode((string)$draft->resultjson, true);
@@ -586,7 +586,7 @@ if ($formdata && confirm_sesskey()) {
         require_capability('local/studybuddy:review', $context);
         $draftid = required_param('draftid', PARAM_INT);
         $sourcedraft = $DB->get_record('local_studybuddy_drafts', ['id' => $draftid, 'courseid' => $courseid], '*', MUST_EXIST);
-        if ($sourcedraft->status === 'pending' || $sourcedraft->status === 'failed') {
+        if (in_array($sourcedraft->status, ['pending', 'running', 'failed'], true)) {
             throw new moodle_exception('generationnotready', 'local_studybuddy');
         }
         $copy = clone $sourcedraft;
@@ -658,7 +658,7 @@ if ($draft) {
     $draftactivitytype = (string)($draft->activitytype ?? 'quiz');
     $ish5pflashcards = $draftactivitytype === 'h5p_flashcards';
     $canpublishdraft = has_capability('local/studybuddy:publish', $context) &&
-        !in_array($draft->status, ['pending', 'failed'], true) &&
+        !in_array($draft->status, ['pending', 'running', 'failed'], true) &&
         ($draft->status !== 'published' || !$publisher->published_activity_exists((int)$draft->publishedcmid));
     $publishedurl = null;
     if (!empty($draft->publishedcmid) && $publisher->published_activity_exists((int)$draft->publishedcmid)) {
@@ -707,10 +707,11 @@ if ($draft) {
     ]))->out(false);
     $drafteditorhtml = $pluginoutput->render_teacher_draft_editor([
         'hasdraft' => true,
-        'ispending' => $draft->status === 'pending',
+        'ispending' => in_array($draft->status, ['pending', 'running'], true),
         'isfailed' => $draft->status === 'failed',
-        'showquestionlist' => !$ish5pflashcards && !$showquestionpreview && !in_array($draft->status, ['pending', 'failed'], true),
-        'showh5pflashcards' => $ish5pflashcards && !in_array($draft->status, ['pending', 'failed'], true),
+        'showquestionlist' => !$ish5pflashcards && !$showquestionpreview &&
+            !in_array($draft->status, ['pending', 'running', 'failed'], true),
+        'showh5pflashcards' => $ish5pflashcards && !in_array($draft->status, ['pending', 'running', 'failed'], true),
         'showquestionpreview' => $showquestionpreview,
         'recentdraftshtml' => $recentdraftshtml,
         'recentdraftsheading' => get_string('recentdrafts', 'local_studybuddy'),
@@ -877,7 +878,7 @@ $pagecontext = [
     'reviewdrafttitlelabel' => get_string('drafttitle', 'local_studybuddy'),
     'reviewdrafttitle' => $draft ? format_string($draft->title) : '',
     'showreviewquestionpreview' => $showquestionpreviewpage,
-    'showreviewrecentdrafts' => !$draft || in_array($draft->status, ['pending', 'failed'], true),
+    'showreviewrecentdrafts' => !$draft || in_array($draft->status, ['pending', 'running', 'failed'], true),
     'drafteditorhtml' => $drafteditorhtml,
     'recentdraftshtml' => $recentdraftshtml,
 ];

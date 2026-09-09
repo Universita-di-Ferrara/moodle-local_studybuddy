@@ -219,7 +219,7 @@ foreach ($recentrecords as $recentrecord) {
         'isflashcards' => $activitytype === 'flashcards',
         'isconceptmap' => $activitytype === 'conceptmap',
         'status' => get_string('generationstatus:' . $status, 'local_studybuddy'),
-        'ispending' => $status === 'pending',
+        'ispending' => in_array($status, ['pending', 'running'], true),
         'isready' => $status === 'ready',
         'isfailed' => $status === 'failed',
         'active' => (int)$recentrecord->id === $practiceid,
@@ -229,7 +229,7 @@ foreach ($recentrecords as $recentrecord) {
     ];
 }
 
-$showpending = $selectedpractice && $selectedpractice->status === 'pending';
+$showpending = $selectedpractice && in_array($selectedpractice->status, ['pending', 'running'], true);
 $showfailed = $selectedpractice && $selectedpractice->status === 'failed';
 $refreshurl = new moodle_url('/local/studybuddy/practice.php', [
     'courseid' => $courseid,

@@ -770,6 +770,11 @@ define(['core/ajax', 'core/notification', 'core/str', 'core/templates'],
                 button.classList.add('is-loading');
                 button.setAttribute('aria-busy', 'true');
 
+                var spinner = button.querySelector('.local-studybuddy-button-spinner');
+                if (spinner) {
+                    spinner.classList.remove('d-none');
+                }
+
                 var label = button.querySelector('.local-studybuddy-button-label');
                 if (label && button.dataset.loadingText) {
                     label.textContent = button.dataset.loadingText;
