@@ -1,15 +1,14 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<thirdpartylibs>
+<?xml version="1.0"?>
+<libraries>
     <library>
         <name>Mind Elixir</name>
+        <description>JavaScript core library used to render concept maps.</description>
         <location>lib/mindelixir</location>
-        <version>5.13.0</version>
+        <version>5.15.1</version>
         <license>MIT</license>
-        <licenseurl>https://opensource.org/licenses/MIT</licenseurl>
-        <origin>https://github.com/SSShooter/mind-elixir-core</origin>
-        <homepage>https://docs.mind-elixir.com</homepage>
-        <downloadurl>https://github.com/SSShooter/mind-elixir-core/releases</downloadurl>
-        <issuesurl>https://github.com/SSShooter/mind-elixir-core/issues</issuesurl>
-        <credits>SSShooter</credits>
+        <repository>https://github.com/SSShooter/mind-elixir-core</repository>
+        <copyrights>
+            <copyright>2019 DjZhou</copyright>
+        </copyrights>
     </library>
-</thirdpartylibs>
+</libraries>

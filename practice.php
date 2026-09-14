@@ -60,7 +60,7 @@ $PAGE->set_course($course);
 $PAGE->set_url(new moodle_url('/local/studybuddy/practice.php', ['courseid' => $courseid]));
 $PAGE->set_title(get_string('practiceheading', 'local_studybuddy'));
 $PAGE->set_heading(format_string($course->fullname));
-$PAGE->requires->css(new moodle_url('/local/studybuddy/lib/mindelixir/style.css'));
+$PAGE->requires->css(new moodle_url('/local/studybuddy/lib/mindelixir/MindElixir.css'));
 $PAGE->requires->js_call_amd('local_studybuddy/studybuddy', 'initPractice');
 $PAGE->requires->js_call_amd('local_studybuddy/flashcards', 'init');
 

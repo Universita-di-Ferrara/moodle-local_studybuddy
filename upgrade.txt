@@ -1,0 +1,3 @@
+== 0.1.0 ==
+
+* Updated the bundled Mind Elixir third-party library to version 5.15.1.

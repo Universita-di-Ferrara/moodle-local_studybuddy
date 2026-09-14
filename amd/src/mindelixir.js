@@ -25,6 +25,41 @@ define([], function() {
     var loadPromise = null;
 
     /**
+     * Return the constructor exposed by the MindElixir IIFE distribution.
+     *
+     * @return {Function|null} MindElixir constructor, if available.
+     */
+    var getConstructor = function() {
+        if (typeof window.MindElixir === 'function') {
+            return window.MindElixir;
+        }
+
+        if (window.MindElixir && typeof window.MindElixir.default === 'function') {
+            return window.MindElixir.default;
+        }
+
+        return null;
+    };
+
+    /**
+     * Resolve the constructor after the third-party script has loaded.
+     *
+     * @param {Function} resolve Promise resolve callback.
+     * @param {Function} reject Promise reject callback.
+     * @return {void}
+     */
+    var resolveConstructor = function(resolve, reject) {
+        var constructor = getConstructor();
+
+        if (constructor) {
+            resolve(constructor);
+            return;
+        }
+
+        reject(new Error('MindElixir was loaded but did not expose a constructor.'));
+    };
+
+    /**
      * Load a JavaScript file dynamically.
      *
      * @param {String} url Script URL.
@@ -34,14 +69,14 @@ define([], function() {
         return new Promise(function(resolve, reject) {
             var existing = document.querySelector('script[data-studybuddy-mindelixir="1"]');
 
-            if (window.MindElixir) {
-                resolve(window.MindElixir);
+            if (getConstructor()) {
+                resolve(getConstructor());
                 return;
             }
 
             if (existing) {
                 existing.addEventListener('load', function() {
-                    resolve(window.MindElixir);
+                    resolveConstructor(resolve, reject);
                 });
                 existing.addEventListener('error', reject);
                 return;
@@ -53,11 +88,7 @@ define([], function() {
             script.dataset.studybuddyMindelixir = '1';
 
             script.onload = function() {
-                if (window.MindElixir) {
-                    resolve(window.MindElixir);
-                } else {
-                    reject(new Error('MindElixir was loaded but window.MindElixir is not available.'));
-                }
+                resolveConstructor(resolve, reject);
             };
 
             script.onerror = function() {
@@ -76,7 +107,7 @@ define([], function() {
     var load = function() {
         if (!loadPromise) {
             loadPromise = loadScript(
-                M.cfg.wwwroot + '/local/studybuddy/lib/mindelixir/MindElixir.iife.min.js'
+                M.cfg.wwwroot + '/local/studybuddy/lib/mindelixir/MindElixir.iife.js'
             );
         }
 
