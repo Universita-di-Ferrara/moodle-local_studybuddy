@@ -82,12 +82,20 @@ class async_generation_service {
      * @param string $title Draft title.
      * @param string $prompt Teacher prompt.
      * @param array $params Generation parameters.
+     * @param array|null $status Previously checked source status, when available.
      * @return int Draft id.
      */
-    public function queue_draft(int $courseid, int $userid, string $title, string $prompt, array $params): int {
+    public function queue_draft(
+        int $courseid,
+        int $userid,
+        string $title,
+        string $prompt,
+        array $params,
+        ?array $status = null
+    ): int {
         global $DB;
 
-        $this->require_provider_ready($courseid, $userid);
+        $this->require_provider_ready($courseid, $userid, $status);
         $params = $this->normalise_params($params, $courseid, $prompt);
         $activitytype = (string)$params['activitytype'];
         $now = time();
@@ -268,10 +276,11 @@ class async_generation_service {
      *
      * @param int $courseid Course id.
      * @param int $userid Requesting user id.
+     * @param array|null $status Previously checked source status, when available.
      * @return void
      */
-    private function require_provider_ready(int $courseid, int $userid): void {
-        $status = (new source_service())->get_sync_status($courseid, $userid);
+    private function require_provider_ready(int $courseid, int $userid, ?array $status = null): void {
+        $status = $status ?? (new source_service())->get_sync_status($courseid, $userid);
         $context = \context_course::instance($courseid);
         $technicalstatus = has_any_capability([
             'local/studybuddy:managesources',

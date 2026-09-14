@@ -344,14 +344,14 @@ function local_studybuddy_enrich_draft_questions_for_review(
  * Prepare recent drafts for template rendering.
  *
  * @param array $recentdrafts Draft records.
- * @param moodle_publisher $publisher Publisher helper.
+ * @param array $existingpublishedcmids Existing published course modules indexed by id.
  * @param int $courseid Current course id.
  * @param int $currentdraftid Currently open draft id.
  * @return array
  */
 function local_studybuddy_prepare_recent_drafts_for_template(
     array $recentdrafts,
-    moodle_publisher $publisher,
+    array $existingpublishedcmids,
     int $courseid,
     int $currentdraftid = 0
 ): array {
@@ -368,7 +368,7 @@ function local_studybuddy_prepare_recent_drafts_for_template(
             'tab' => 'review',
         ]);
         $showmissingbadge = !empty($recentdraft->publishedcmid) &&
-            !$publisher->published_activity_exists((int)$recentdraft->publishedcmid);
+            !isset($existingpublishedcmids[(int)$recentdraft->publishedcmid]);
 
         $items[] = [
             'id' => (int)$recentdraft->id,
@@ -418,15 +418,25 @@ if (
 ) {
     require_capability('local/studybuddy:generate', $context);
 }
-$syncstatus = (new source_service())->get_sync_status($courseid, (int)$USER->id);
-$generationdisabled = !empty($syncstatus['needsreindex']) || empty($syncstatus['available']);
-$generationdisabledmessage = !empty($syncstatus['needsreindex']) ?
-    str_replace(
-        '%%PROVIDER%%',
-        $syncstatus['providerlabel'],
-        get_string('syncstatus:providerchanged', 'local_studybuddy')
-    ) :
-    get_string('syncstatus:empty', 'local_studybuddy');
+$draftid = optional_param('draftid', 0, PARAM_INT);
+$requestaction = optional_param('action', '', PARAM_ALPHA);
+$syncstatus = null;
+$generationdisabled = false;
+$generationdisabledmessage = '';
+
+// A pending draft already passed the readiness check before being queued.
+// Avoid recalculating the complete source status while rendering its wait view.
+if ($draftid <= 0 || $requestaction === 'generate') {
+    $syncstatus = (new source_service())->get_sync_status($courseid, (int)$USER->id);
+    $generationdisabled = !empty($syncstatus['needsreindex']) || empty($syncstatus['available']);
+    $generationdisabledmessage = !empty($syncstatus['needsreindex']) ?
+        str_replace(
+            '%%PROVIDER%%',
+            $syncstatus['providerlabel'],
+            get_string('syncstatus:providerchanged', 'local_studybuddy')
+        ) :
+        get_string('syncstatus:empty', 'local_studybuddy');
+}
 
 $PAGE->set_context($context);
 $PAGE->set_course($course);
@@ -476,7 +486,14 @@ if ($formdata && confirm_sesskey()) {
             'difficulty' => optional_param('difficulty', 'medium', PARAM_ALPHA),
         ];
 
-        $draftid = (new async_generation_service())->queue_draft($courseid, (int)$USER->id, $title, $prompt, $params);
+        $draftid = (new async_generation_service())->queue_draft(
+            $courseid,
+            (int)$USER->id,
+            $title,
+            $prompt,
+            $params,
+            $syncstatus
+        );
         redirect(
             new moodle_url('/local/studybuddy/teacher.php', [
                 'courseid' => $courseid,
@@ -602,7 +619,6 @@ if ($formdata && confirm_sesskey()) {
     }
 }
 
-$draftid = optional_param('draftid', 0, PARAM_INT);
 if (!$draft && $draftid && !$skipdraftautoload) {
     $draft = $DB->get_record('local_studybuddy_drafts', ['id' => $draftid, 'courseid' => $courseid]);
 }
@@ -638,13 +654,27 @@ $reviewtaburl = new moodle_url('/local/studybuddy/teacher.php', $reviewtabparams
 /** @var renderer $pluginoutput */
 $pluginoutput = $PAGE->get_renderer('local_studybuddy');
 
-$recentdrafts = $DB->get_records('local_studybuddy_drafts', ['courseid' => $courseid], 'timemodified DESC', '*', 0, 20);
+$recentdrafts = $DB->get_records(
+    'local_studybuddy_drafts',
+    ['courseid' => $courseid],
+    'timemodified DESC',
+    'id, activitytype, status, title, publishedcmid, timemodified',
+    0,
+    20
+);
+$recentpublishedcmids = array_filter(array_map(
+    static function (\stdClass $recentdraft): int {
+        return (int)($recentdraft->publishedcmid ?? 0);
+    },
+    array_values($recentdrafts)
+));
+$existingpublishedcmids = $publisher->existing_published_activity_ids($recentpublishedcmids);
 $recentdraftshtml = $pluginoutput->render_teacher_recent_drafts([
     'hasdrafts' => !empty($recentdrafts),
     'heading' => get_string('recentdrafts', 'local_studybuddy'),
     'drafts' => local_studybuddy_prepare_recent_drafts_for_template(
         $recentdrafts,
-        $publisher,
+        $existingpublishedcmids,
         $courseid,
         $draft ? (int)$draft->id : 0
     ),

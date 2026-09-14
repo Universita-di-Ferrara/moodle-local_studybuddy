@@ -45,6 +45,33 @@ class moodle_publisher {
     }
 
     /**
+     * Return the existing published activity ids from a list of course modules.
+     *
+     * @param array $cmids Course module ids.
+     * @return array Existing course module ids indexed by id.
+     */
+    public function existing_published_activity_ids(array $cmids): array {
+        global $DB;
+
+        $cmids = array_values(array_unique(array_filter(array_map('intval', $cmids))));
+        if (empty($cmids)) {
+            return [];
+        }
+
+        [$insql, $params] = $DB->get_in_or_equal($cmids, SQL_PARAMS_NAMED, 'cmid');
+        $params['deletioninprogress'] = 0;
+        $records = $DB->get_records_select(
+            'course_modules',
+            "id {$insql} AND deletioninprogress = :deletioninprogress",
+            $params,
+            '',
+            'id'
+        );
+
+        return array_fill_keys(array_map('intval', array_keys($records)), true);
+    }
+
+    /**
      * Publishes a draft as a Moodle quiz and returns add_moduleinfo result.
      *
      * @param int $draftid Draft id.
