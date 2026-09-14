@@ -429,13 +429,28 @@ $generationdisabledmessage = '';
 if ($draftid <= 0 || $requestaction === 'generate') {
     $syncstatus = (new source_service())->get_sync_status($courseid, (int)$USER->id);
     $generationdisabled = !empty($syncstatus['needsreindex']) || empty($syncstatus['available']);
-    $generationdisabledmessage = !empty($syncstatus['needsreindex']) ?
-        str_replace(
-            '%%PROVIDER%%',
-            $syncstatus['providerlabel'],
-            get_string('syncstatus:providerchanged', 'local_studybuddy')
-        ) :
-        get_string('syncstatus:empty', 'local_studybuddy');
+    $generationdisabledmessage = get_string('syncstatus:empty', 'local_studybuddy');
+    if (!empty($syncstatus['needsreindex'])) {
+        if (empty($syncstatus['locationvalid'])) {
+            $generationdisabledmessage = str_replace(
+                '%%LOCATION%%',
+                $syncstatus['configuredlocation'],
+                get_string('syncstatus:locationinvalid', 'local_studybuddy')
+            );
+        } else if (!empty($syncstatus['locationchanged'])) {
+            $generationdisabledmessage = str_replace(
+                ['%%LOCATION%%', '%%STOREDLOCATION%%'],
+                [$syncstatus['configuredlocation'], $syncstatus['storedlocation']],
+                get_string('syncstatus:locationchanged', 'local_studybuddy')
+            );
+        } else {
+            $generationdisabledmessage = str_replace(
+                '%%PROVIDER%%',
+                $syncstatus['providerlabel'],
+                get_string('syncstatus:providerchanged', 'local_studybuddy')
+            );
+        }
+    }
 }
 
 $PAGE->set_context($context);

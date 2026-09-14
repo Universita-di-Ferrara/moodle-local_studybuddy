@@ -41,7 +41,7 @@ class google_provider implements ai_provider {
     }
 
     /**
-     * Generates structured JSON using Gemini generateContent and File Search when available.
+     * Generates structured JSON using Gemini Interactions and File Search.
      *
      * @param string $prompt Controlled prompt.
      * @param array $context Context and params.
@@ -61,40 +61,28 @@ class google_provider implements ai_provider {
         }
 
         $body = [
-            'systemInstruction' => [
-                'parts' => [[
-                    'text' => $prompt . "\n\n" .
-                        prompt_config::get('providerjsoninstructions', 'default:providerjsoninstructions'),
-                ], ],
-            ],
-            'contents' => [[
-                'role' => 'user',
-                'parts' => [[
-                    'text' => $this->build_input($params),
-                ], ],
+            'model' => google_client::get_configured_generation_model(),
+            'input' => $this->build_input($params),
+            'system_instruction' => $prompt . "\n\n" .
+                prompt_config::get('providerjsoninstructions', 'default:providerjsoninstructions'),
+            'response_format' => [[
+                'type' => 'text',
+                'mime_type' => 'application/json',
             ], ],
-            'generationConfig' => [
-                'responseMimeType' => 'application/json',
-                'temperature' => 0.2,
-            ],
+            'store' => false,
         ];
 
         if ($storeid !== '') {
             $body['tools'] = [[
-                'fileSearch' => [
-                    'fileSearchStoreNames' => [$storeid],
-                ],
+                'type' => 'file_search',
+                'file_search_store_names' => [$storeid],
             ], ];
             if (!empty($params['google_metadata_filter'])) {
-                $body['tools'][0]['fileSearch']['metadataFilter'] = $params['google_metadata_filter'];
+                $body['tools'][0]['metadata_filter'] = $params['google_metadata_filter'];
             }
         }
 
-        $response = $this->client->request(
-            'POST',
-            '/' . $this->model_name(google_client::get_configured_generation_model()) . ':generateContent',
-            $body
-        );
+        $response = $this->client->interaction_request('POST', '/interactions', $body);
         $text = $this->extract_text($response);
         $decoded = json_decode($text, true);
 
@@ -130,7 +118,7 @@ class google_provider implements ai_provider {
     }
 
     /**
-     * Extracts text from a generateContent response.
+     * Extracts text from model output steps in an Interaction response.
      *
      * @param array $response Response.
      * @return string
@@ -138,10 +126,13 @@ class google_provider implements ai_provider {
     private function extract_text(array $response): string {
         $text = '';
 
-        foreach (($response['candidates'] ?? []) as $candidate) {
-            foreach (($candidate['content']['parts'] ?? []) as $part) {
-                if (isset($part['text'])) {
-                    $text .= (string)$part['text'] . "\n";
+        foreach (($response['steps'] ?? []) as $step) {
+            if (($step['type'] ?? '') !== 'model_output') {
+                continue;
+            }
+            foreach (($step['content'] ?? []) as $content) {
+                if (($content['type'] ?? '') === 'text' && isset($content['text'])) {
+                    $text .= (string)$content['text'] . "\n";
                 }
             }
         }
@@ -162,15 +153,5 @@ class google_provider implements ai_provider {
         }
 
         return null;
-    }
-
-    /**
-     * Normalises model names for REST paths.
-     *
-     * @param string $model Model id.
-     * @return string
-     */
-    private function model_name(string $model): string {
-        return str_starts_with($model, 'models/') ? $model : 'models/' . $model;
     }
 }

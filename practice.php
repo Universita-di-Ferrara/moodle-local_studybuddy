@@ -46,14 +46,31 @@ $technicalstatus = has_any_capability([
     'local/studybuddy:publish',
     'local/studybuddy:manage',
 ], $context);
-$generationdisabledmessage = !empty($syncstatus['needsreindex']) ?
-    ($technicalstatus ? str_replace(
-        '%%PROVIDER%%',
-        $syncstatus['providerlabel'],
-        get_string('syncstatus:providerchanged', 'local_studybuddy')
-    ) : get_string('syncstatus:temporarilydisabled', 'local_studybuddy')) :
-    ($technicalstatus ? get_string('syncstatus:empty', 'local_studybuddy') :
-        get_string('syncstatus:temporarilydisabled', 'local_studybuddy'));
+$generationdisabledmessage = $technicalstatus ? get_string('syncstatus:empty', 'local_studybuddy') :
+    get_string('syncstatus:temporarilydisabled', 'local_studybuddy');
+if (!empty($syncstatus['needsreindex'])) {
+    if ($technicalstatus && empty($syncstatus['locationvalid'])) {
+        $generationdisabledmessage = str_replace(
+            '%%LOCATION%%',
+            $syncstatus['configuredlocation'],
+            get_string('syncstatus:locationinvalid', 'local_studybuddy')
+        );
+    } else if ($technicalstatus && !empty($syncstatus['locationchanged'])) {
+        $generationdisabledmessage = str_replace(
+            ['%%LOCATION%%', '%%STOREDLOCATION%%'],
+            [$syncstatus['configuredlocation'], $syncstatus['storedlocation']],
+            get_string('syncstatus:locationchanged', 'local_studybuddy')
+        );
+    } else if ($technicalstatus) {
+        $generationdisabledmessage = str_replace(
+            '%%PROVIDER%%',
+            $syncstatus['providerlabel'],
+            get_string('syncstatus:providerchanged', 'local_studybuddy')
+        );
+    } else {
+        $generationdisabledmessage = get_string('syncstatus:temporarilydisabled', 'local_studybuddy');
+    }
+}
 
 $PAGE->set_context($context);
 $PAGE->set_course($course);

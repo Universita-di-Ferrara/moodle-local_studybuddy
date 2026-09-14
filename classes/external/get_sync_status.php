@@ -91,6 +91,10 @@ class get_sync_status extends external_api {
             'pendingfiles' => new external_value(PARAM_INT, external_description::get('pendingfiles')),
             'lasterror' => new external_value(PARAM_RAW, external_description::get('lastsyncerror')),
             'needsreindex' => new external_value(PARAM_BOOL, external_description::get('needsreindex')),
+            'configuredlocation' => new external_value(PARAM_TEXT, external_description::get('configuredlocation')),
+            'storedlocation' => new external_value(PARAM_TEXT, external_description::get('storedlocation')),
+            'locationchanged' => new external_value(PARAM_BOOL, external_description::get('locationchanged')),
+            'locationvalid' => new external_value(PARAM_BOOL, external_description::get('locationvalid')),
         ]);
     }
 }

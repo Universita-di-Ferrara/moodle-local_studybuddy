@@ -150,7 +150,7 @@ if ($hassiteconfig && $ADMIN->fulltree && $settings instanceof admin_settingpage
         'local_studybuddy/googlegenerationmodel',
         get_string('settings:googlegenerationmodel', 'local_studybuddy'),
         get_string('settings:googlegenerationmodel_desc', 'local_studybuddy'),
-        'gemini-3-flash-preview',
+        'gemini-3.5-flash',
         PARAM_TEXT
     ));
 
@@ -197,19 +197,20 @@ if ($hassiteconfig && $ADMIN->fulltree && $settings instanceof admin_settingpage
         PARAM_TEXT
     ));
 
-    $settings->add(new admin_setting_configtext(
+    $settings->add(new admin_setting_configselect(
         'local_studybuddy/vertexailocation',
         get_string('settings:vertexailocation', 'local_studybuddy'),
         get_string('settings:vertexailocation_desc', 'local_studybuddy'),
         'europe-west3',
-        PARAM_TEXT
+        \local_studybuddy\local\provider\vertexai\vertexai_client::get_supported_rag_locations()
     ));
 
+    $vertexaibaseurl = \local_studybuddy\local\provider\vertexai\vertexai_client::get_configured_baseurl();
     $settings->add(new admin_setting_configtext(
         'local_studybuddy/vertexaibaseurl',
         get_string('settings:vertexaibaseurl', 'local_studybuddy'),
-        get_string('settings:vertexaibaseurl_desc', 'local_studybuddy'),
-        'https://europe-west3-aiplatform.googleapis.com',
+        get_string('settings:vertexaibaseurl_desc', 'local_studybuddy', $vertexaibaseurl),
+        $vertexaibaseurl,
         PARAM_URL
     ));
 
@@ -359,4 +360,7 @@ if ($hassiteconfig && $ADMIN->fulltree && $settings instanceof admin_settingpage
     ) {
         $settings->hide_if('local_studybuddy/' . $settingname, 'local_studybuddy/provider', 'neq', 'vertexai');
     }
+
+    global $PAGE;
+    $PAGE->requires->js_call_amd('local_studybuddy/settings', 'init');
 }

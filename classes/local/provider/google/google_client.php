@@ -70,7 +70,7 @@ class google_client {
      * @return string
      */
     public static function get_configured_generation_model(): string {
-        return (string)(get_config('local_studybuddy', 'googlegenerationmodel') ?: 'gemini-3-flash-preview');
+        return (string)(get_config('local_studybuddy', 'googlegenerationmodel') ?: 'gemini-3.5-flash');
     }
 
     /**
@@ -84,6 +84,30 @@ class google_client {
      */
     public function request(string $method, string $path, ?array $json = null, array $headers = []): array {
         $raw = $this->raw_request($method, $path, $json, $headers);
+        return $this->decode_response($raw);
+    }
+
+    /**
+     * Sends a request to the Gemini Interactions API and decodes the response.
+     *
+     * @param string $method HTTP method.
+     * @param string $path API path relative to /v1beta.
+     * @param array|null $json JSON body.
+     * @param array $headers Extra headers.
+     * @return array Decoded response.
+     */
+    public function interaction_request(string $method, string $path, ?array $json = null, array $headers = []): array {
+        $raw = $this->raw_request($method, $path, $json, $headers, 'v1beta');
+        return $this->decode_response($raw);
+    }
+
+    /**
+     * Decodes a JSON API response.
+     *
+     * @param string $raw Raw response body.
+     * @return array Decoded response.
+     */
+    private function decode_response(string $raw): array {
         $decoded = json_decode($raw, true);
 
         if (!is_array($decoded)) {
@@ -97,15 +121,22 @@ class google_client {
      * Sends a JSON request and returns the raw response body.
      *
      * @param string $method HTTP method.
-     * @param string $path API path relative to /v1beta.
+     * @param string $path API path relative to the selected API version.
      * @param array|null $json JSON body.
      * @param array $headers Extra headers.
+     * @param string $apiversion API version.
      * @return string Raw body.
      */
-    public function raw_request(string $method, string $path, ?array $json = null, array $headers = []): string {
+    public function raw_request(
+        string $method,
+        string $path,
+        ?array $json = null,
+        array $headers = [],
+        string $apiversion = 'v1beta'
+    ): string {
         $this->require_apikey();
 
-        $url = $this->url('/v1beta' . $path);
+        $url = $this->url('/' . trim($apiversion, '/') . $path);
         $httpheaders = array_merge([
             'Content-Type: application/json',
             'X-Goog-Api-Key: ' . $this->apikey,

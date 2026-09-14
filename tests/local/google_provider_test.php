@@ -16,25 +16,25 @@
 
 namespace local_studybuddy\local;
 
-use local_studybuddy\local\provider\google\google_chat_provider;
+use local_studybuddy\local\provider\google\google_provider;
 use local_studybuddy\local\provider\google\google_client;
 
 /**
- * Tests the Gemini chat request and grounding response contract without network access.
+ * Tests structured generation through the Gemini Interactions API.
  *
  * @package    local_studybuddy
  * @copyright  2026 Università degli Studi di Ferrara - Unife
  * @author     Andrea Bertelli <andrea.bertelli@unife.it>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers \local_studybuddy\local\provider\google\google_chat_provider
+ * @covers \local_studybuddy\local\provider\google\google_provider
  */
-final class google_chat_provider_test extends \advanced_testcase {
+final class google_provider_test extends \advanced_testcase {
     /**
-     * Tests the request body sent to the Interactions API.
+     * Tests the Interactions payload and structured output parsing.
      *
      * @return void
      */
-    public function test_builds_file_search_request(): void {
+    public function test_generates_structured_output(): void {
         $this->resetAfterTest();
         set_config('googlegenerationmodel', 'gemini-test', 'local_studybuddy');
         $client = new class ('test-key', 'https://example.test') extends google_client {
@@ -42,7 +42,7 @@ final class google_chat_provider_test extends \advanced_testcase {
             public array $captured = [];
 
             /**
-             * Captures a request without contacting Google.
+             * Captures an interaction request without contacting Google.
              *
              * @param string $method HTTP method.
              * @param string $path API path.
@@ -62,61 +62,31 @@ final class google_chat_provider_test extends \advanced_testcase {
                     'json' => $json,
                     'headers' => $headers,
                 ];
-                return [];
+                return [
+                    'steps' => [[
+                        'type' => 'model_output',
+                        'content' => [[
+                            'type' => 'text',
+                            'text' => '{"title":"Generated activity"}',
+                        ], ],
+                    ], ],
+                ];
             }
         };
 
-        $provider = new google_chat_provider($client);
-        $provider->ask_course_kb(
-            'fileSearchStores/course-5',
-            [
-                ['role' => 'user', 'content' => 'Question'],
-                ['role' => 'assistant', 'content' => 'Answer'],
+        $provider = new google_provider($client);
+        $result = $provider->generate('Create an activity.', [
+            'params' => [
+                'googlestoreid' => 'fileSearchStores/course-5',
+                'activitytype' => 'quiz',
             ],
-            'System instructions',
-            ['google_metadata_filter' => 'moodle_cmid = 5']
-        );
+        ]);
 
         $this->assertSame('POST', $client->captured['method']);
         $this->assertSame('/interactions', $client->captured['path']);
         $this->assertSame('gemini-test', $client->captured['json']['model']);
-        $this->assertSame('model_output', $client->captured['json']['input'][1]['type']);
         $this->assertFalse($client->captured['json']['store']);
-        $this->assertSame(
-            'fileSearchStores/course-5',
-            $client->captured['json']['tools'][0]['file_search_store_names'][0]
-        );
-        $this->assertSame(
-            'moodle_cmid = 5',
-            $client->captured['json']['tools'][0]['metadata_filter']
-        );
-    }
-
-    /**
-     * Tests grounding extraction from Interaction file citation annotations.
-     *
-     * @return void
-     */
-    public function test_extracts_snake_case_grounding_sources(): void {
-        $provider = new google_chat_provider(new google_client('test-key', 'https://example.test'));
-        $sources = $provider->extract_sources([
-            'steps' => [[
-                'type' => 'model_output',
-                'content' => [[
-                    'type' => 'text',
-                    'text' => 'Relevant course content.',
-                    'annotations' => [[
-                        'type' => 'file_citation',
-                        'file_name' => 'Course notes.pdf',
-                        'document_uri' => 'fileSearchStores/course-5/documents/1',
-                    ], ],
-                ], ],
-            ], ],
-        ]);
-
-        $this->assertCount(1, $sources);
-        $this->assertSame('Course notes.pdf', $sources[0]['title']);
-        $this->assertSame(0.0, $sources[0]['score']);
-        $this->assertSame('', $sources[0]['excerpt']);
+        $this->assertSame('application/json', $client->captured['json']['response_format'][0]['mime_type']);
+        $this->assertSame('Generated activity', $result['title']);
     }
 }

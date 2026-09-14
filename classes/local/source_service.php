@@ -20,6 +20,7 @@ use core\task\manager;
 use local_studybuddy\local\provider\google\google_course_file_search_store_service;
 use local_studybuddy\local\provider\openai\openai_course_vector_store_service;
 use local_studybuddy\local\provider\provider_file_scope;
+use local_studybuddy\local\provider\vertexai\vertexai_client;
 use local_studybuddy\local\provider\vertexai\vertexai_course_rag_service;
 
 /**
@@ -222,6 +223,19 @@ class source_service {
             'courseid' => $courseid,
             'provider' => $provider,
         ]);
+        $configuredlocation = '';
+        $storedlocation = '';
+        $locationchanged = false;
+        $locationvalid = true;
+        if ($provider === 'vertexai' && $store && !empty($store->externalid)) {
+            $configuredlocation = vertexai_client::get_configured_location();
+            $locationvalid = vertexai_client::is_supported_rag_location($configuredlocation);
+            $storedlocation = $this->get_resource_location((string)$store->externalid);
+            $locationchanged = $storedlocation !== '' && $storedlocation !== $configuredlocation;
+        } else if ($provider === 'vertexai') {
+            $configuredlocation = vertexai_client::get_configured_location();
+            $locationvalid = vertexai_client::is_supported_rag_location($configuredlocation);
+        }
         $storeid = $store ? (int)$store->id : 0;
         $completedfiles = 0;
         $failedfiles = 0;
@@ -306,8 +320,10 @@ class source_service {
         $providerready = $store &&
             in_array((string)$store->status, ['ready', 'completed'], true) &&
             $activefiles > 0 &&
-            $enabledstale === 0;
-        $needsreindex = $enabled > 0 && !$syncing && !$providerready;
+            $enabledstale === 0 &&
+            $locationvalid &&
+            !$locationchanged;
+        $needsreindex = $enabled > 0 && (!$locationvalid || $locationchanged || (!$syncing && !$providerready));
 
         return [
             'total' => count($documents),
@@ -328,7 +344,25 @@ class source_service {
             'pendingfiles' => $pendingfiles,
             'lasterror' => $lasterror,
             'needsreindex' => $needsreindex,
+            'configuredlocation' => $configuredlocation,
+            'storedlocation' => $storedlocation,
+            'locationchanged' => $locationchanged,
+            'locationvalid' => $locationvalid,
         ];
+    }
+
+    /**
+     * Extracts the location from a Google Cloud resource name.
+     *
+     * @param string $resource Resource name.
+     * @return string Resource location, or an empty string when unavailable.
+     */
+    private function get_resource_location(string $resource): string {
+        if (preg_match('#^projects/[^/]+/locations/([^/]+)/#', $resource, $matches)) {
+            return (string)$matches[1];
+        }
+
+        return '';
     }
 
     /**

@@ -44,6 +44,8 @@ define(['core/ajax', 'core/notification', 'core/str', 'core/templates'],
                 {key: 'syncstatus:ready', component: 'local_studybuddy'},
                 {key: 'syncstatus:empty', component: 'local_studybuddy'},
                 {key: 'syncstatus:providerchanged', component: 'local_studybuddy'},
+                {key: 'syncstatus:locationchanged', component: 'local_studybuddy'},
+                {key: 'syncstatus:locationinvalid', component: 'local_studybuddy'},
                 {key: 'syncstatus:temporarilydisabled', component: 'local_studybuddy'},
                 {key: 'chat:syncplaceholder', component: 'local_studybuddy'},
                 {key: 'chat:responseavailable', component: 'local_studybuddy'},
@@ -59,11 +61,13 @@ define(['core/ajax', 'core/notification', 'core/str', 'core/templates'],
                 uiStrings.syncready = strings[6];
                 uiStrings.syncempty = strings[7];
                 uiStrings.syncproviderchanged = strings[8];
-                uiStrings.syncdisabled = strings[9];
-                uiStrings.chatsyncplaceholder = strings[10];
-                uiStrings.chatresponseavailable = strings[11];
-                uiStrings.chatproviderbusy = strings[12];
-                uiStrings.chatproviderunavailable = strings[13];
+                uiStrings.synclocationchanged = strings[9];
+                uiStrings.synclocationinvalid = strings[10];
+                uiStrings.syncdisabled = strings[11];
+                uiStrings.chatsyncplaceholder = strings[12];
+                uiStrings.chatresponseavailable = strings[13];
+                uiStrings.chatproviderbusy = strings[14];
+                uiStrings.chatproviderunavailable = strings[15];
                 return uiStrings;
             });
         }
@@ -333,10 +337,20 @@ define(['core/ajax', 'core/notification', 'core/str', 'core/templates'],
         }
 
         if (status.needsreindex) {
-            var reindexText = technicalstatus ? (uiStrings.syncproviderchanged || '').replace(
-                '%%PROVIDER%%',
-                status.providerlabel || status.provider || ''
-            ) : uiStrings.syncdisabled || '';
+            var reindexText = uiStrings.syncdisabled || '';
+            if (technicalstatus && status.locationvalid === false) {
+                reindexText = (uiStrings.synclocationinvalid || '')
+                    .replace('%%LOCATION%%', status.configuredlocation || '');
+            } else if (technicalstatus && status.locationchanged) {
+                reindexText = (uiStrings.synclocationchanged || '')
+                    .replace('%%LOCATION%%', status.configuredlocation || '')
+                    .replace('%%STOREDLOCATION%%', status.storedlocation || '');
+            } else if (technicalstatus) {
+                reindexText = (uiStrings.syncproviderchanged || '').replace(
+                    '%%PROVIDER%%',
+                    status.providerlabel || status.provider || ''
+                );
+            }
             return {type: 'info', text: reindexText, show: true};
         }
 

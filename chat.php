@@ -56,14 +56,29 @@ $technicalstatus = has_any_capability([
     'local/studybuddy:publish',
     'local/studybuddy:manage',
 ], $context);
-$statuslabel = !empty($status['needsreindex']) ?
-    ($technicalstatus ? str_replace(
+$statuslabel = get_string('syncstatus:temporarilydisabled', 'local_studybuddy');
+if (empty($status['needsreindex'])) {
+    $statuslabel = $technicalstatus ? get_string('sourcestatus', 'local_studybuddy', (object)$status) :
+        get_string('syncstatus:temporarilydisabled', 'local_studybuddy');
+} else if ($technicalstatus && empty($status['locationvalid'])) {
+    $statuslabel = str_replace(
+        '%%LOCATION%%',
+        $status['configuredlocation'],
+        get_string('syncstatus:locationinvalid', 'local_studybuddy')
+    );
+} else if ($technicalstatus && !empty($status['locationchanged'])) {
+    $statuslabel = str_replace(
+        ['%%LOCATION%%', '%%STOREDLOCATION%%'],
+        [$status['configuredlocation'], $status['storedlocation']],
+        get_string('syncstatus:locationchanged', 'local_studybuddy')
+    );
+} else if ($technicalstatus) {
+    $statuslabel = str_replace(
         '%%PROVIDER%%',
         $status['providerlabel'],
         get_string('syncstatus:providerchanged', 'local_studybuddy')
-    ) : get_string('syncstatus:temporarilydisabled', 'local_studybuddy')) :
-    ($technicalstatus ? get_string('sourcestatus', 'local_studybuddy', (object)$status) :
-        get_string('syncstatus:temporarilydisabled', 'local_studybuddy'));
+    );
+}
 $PAGE->requires->js_call_amd('local_studybuddy/studybuddy', 'initChat', [
     $courseid,
     (int)$chat->id,

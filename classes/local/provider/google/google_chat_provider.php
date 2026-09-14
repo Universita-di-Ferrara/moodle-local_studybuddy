@@ -49,50 +49,43 @@ class google_chat_provider implements chat_provider_interface {
      * @return array Provider response.
      */
     public function ask_course_kb(?string $knowledgebaseid, array $conversation, string $systemprompt, array $options = []): array {
-        $contents = [];
-        foreach ($conversation as $index => $message) {
+        $input = [];
+        foreach ($conversation as $message) {
             if (!is_array($message) || !isset($message['role'])) {
                 continue;
             }
             $text = (string)($message['content'] ?? '');
-            $contents[] = [
-                'role' => $message['role'] === 'assistant' ? 'model' : 'user',
-                'parts' => [[
+            $input[] = [
+                'type' => $message['role'] === 'assistant' ? 'model_output' : 'user_input',
+                'content' => [[
+                    'type' => 'text',
                     'text' => $text,
                 ], ],
             ];
         }
 
         $body = [
-            'systemInstruction' => [
-                'parts' => [['text' => $systemprompt]],
-            ],
-            'contents' => $contents,
-            'generationConfig' => [
-                'temperature' => 0.2,
-            ],
+            'model' => google_client::get_configured_generation_model(),
+            'input' => $input,
+            'system_instruction' => $systemprompt,
+            'store' => false,
         ];
 
         if (!empty($knowledgebaseid)) {
             $body['tools'] = [[
-                'fileSearch' => [
-                    'fileSearchStoreNames' => [$knowledgebaseid],
-                ],
+                'type' => 'file_search',
+                'file_search_store_names' => [$knowledgebaseid],
             ], ];
             if (!empty($options['google_metadata_filter'])) {
-                $body['tools'][0]['fileSearch']['metadataFilter'] = $options['google_metadata_filter'];
+                $body['tools'][0]['metadata_filter'] = $options['google_metadata_filter'];
             }
         }
 
-        return $this->client->request(
-            'POST',
-            '/' . $this->model_name(google_client::get_configured_generation_model()) . ':generateContent',
-            $body
-        );
+        return $this->client->interaction_request('POST', '/interactions', $body);
     }
 
     /**
-     * Extracts assistant text from a Gemini response.
+     * Extracts assistant text from a Gemini Interaction response.
      *
      * @param array $response Provider response.
      * @return string Assistant text.
@@ -112,16 +105,6 @@ class google_chat_provider implements chat_provider_interface {
     }
 
     /**
-     * Normalises a Gemini model resource name.
-     *
-     * @param string $model Model name.
-     * @return string Resource name.
-     */
-    private function model_name(string $model): string {
-        return str_starts_with($model, 'models/') ? $model : 'models/' . $model;
-    }
-
-    /**
      * Extracts text parts from a Gemini response.
      *
      * @param array $response Provider response.
@@ -129,10 +112,13 @@ class google_chat_provider implements chat_provider_interface {
      */
     private function extract_google_text(array $response): string {
         $text = '';
-        foreach (($response['candidates'] ?? []) as $candidate) {
-            foreach (($candidate['content']['parts'] ?? []) as $part) {
-                if (isset($part['text'])) {
-                    $text .= (string)$part['text'] . "\n";
+        foreach (($response['steps'] ?? []) as $step) {
+            if (($step['type'] ?? '') !== 'model_output') {
+                continue;
+            }
+            foreach (($step['content'] ?? []) as $content) {
+                if (($content['type'] ?? '') === 'text' && isset($content['text'])) {
+                    $text .= (string)$content['text'] . "\n";
                 }
             }
         }
@@ -149,23 +135,34 @@ class google_chat_provider implements chat_provider_interface {
      */
     private function extract_grounding_sources(array $response, string $type): array {
         $sources = [];
-        $candidate = $response['candidates'][0] ?? [];
-        $metadata = $candidate['groundingMetadata'] ?? $candidate['grounding_metadata'] ?? [];
-        $chunks = $metadata['groundingChunks'] ?? $metadata['grounding_chunks'] ?? [];
-        foreach ($chunks as $chunk) {
-            $web = $chunk['web'] ?? [];
-            $retrieved = $chunk['retrievedContext'] ?? $chunk['retrieved_context'] ?? [];
-            $title = $retrieved['title'] ?? $web['title'] ?? $retrieved['uri'] ??
-                get_string('source:unknown', 'local_studybuddy');
-            $sources[] = [
-                'title' => (string)$title,
-                'sourcetype' => $type,
-                'cmid' => 0,
-                'chunkid' => 0,
-                'documentid' => 0,
-                'score' => 0.0,
-                'excerpt' => shorten_text((string)($retrieved['text'] ?? $web['uri'] ?? ''), 180),
-            ];
+        $seen = [];
+        foreach (($response['steps'] ?? []) as $step) {
+            if (($step['type'] ?? '') !== 'model_output') {
+                continue;
+            }
+            foreach (($step['content'] ?? []) as $content) {
+                foreach (($content['annotations'] ?? []) as $annotation) {
+                    if (($annotation['type'] ?? '') !== 'file_citation') {
+                        continue;
+                    }
+                    $title = (string)($annotation['file_name'] ?? $annotation['source'] ??
+                        $annotation['document_uri'] ?? get_string('source:unknown', 'local_studybuddy'));
+                    $key = $title . '|' . (string)($annotation['document_uri'] ?? $annotation['source'] ?? '');
+                    if (isset($seen[$key])) {
+                        continue;
+                    }
+                    $seen[$key] = true;
+                    $sources[] = [
+                        'title' => $title,
+                        'sourcetype' => $type,
+                        'cmid' => 0,
+                        'chunkid' => 0,
+                        'documentid' => 0,
+                        'score' => 0.0,
+                        'excerpt' => '',
+                    ];
+                }
+            }
         }
 
         return $sources;

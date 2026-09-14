@@ -39,6 +39,14 @@ class vertexai_course_rag_service {
      * @param vertexai_client|null $client Client.
      */
     public function __construct(?vertexai_client $client = null) {
+        if (!vertexai_client::is_supported_rag_location()) {
+            throw new \moodle_exception(
+                'vertexairaglocationinvalid',
+                'local_studybuddy',
+                '',
+                vertexai_client::get_configured_location()
+            );
+        }
         $client = $client ?? new vertexai_client();
         $this->ragapi = new vertexai_rag_api($client);
     }
@@ -59,17 +67,23 @@ class vertexai_course_rag_service {
         ]);
 
         if ($record) {
-            if ($this->is_operation_name((string)$record->externalid)) {
+            $storedlocation = $this->get_resource_location((string)$record->externalid);
+            $configuredlocation = vertexai_client::get_configured_location();
+            if ($storedlocation !== '' && $storedlocation !== $configuredlocation) {
+                $this->replace_location_mismatched_corpus($record, $storedlocation);
+                $this->lastensurecreatedreplacement = true;
+                $record = null;
+            } else if ($this->is_operation_name((string)$record->externalid)) {
                 return $this->refresh_pending_corpus($record);
-            }
+            } else {
+                if ($this->remote_corpus_exists((string)$record->externalid)) {
+                    return $record;
+                }
 
-            if ($this->remote_corpus_exists((string)$record->externalid)) {
-                return $record;
+                $this->reset_missing_corpus($record);
+                $this->lastensurecreatedreplacement = true;
+                $record = null;
             }
-
-            $this->reset_missing_corpus($record);
-            $this->lastensurecreatedreplacement = true;
-            $record = null;
         }
 
         $course = get_course($courseid);
@@ -347,6 +361,48 @@ class vertexai_course_rag_service {
 
         $DB->delete_records('local_studybuddy_store_files', ['vectorstoreid' => $corpus->id]);
         $DB->delete_records('local_studybuddy_stores', ['id' => $corpus->id]);
+    }
+
+    /**
+     * Replaces a corpus whose location differs from the configured service location.
+     *
+     * @param \stdClass $corpus Local corpus record.
+     * @param string $storedlocation Previous corpus location.
+     * @return void
+     */
+    private function replace_location_mismatched_corpus(\stdClass $corpus, string $storedlocation): void {
+        global $DB;
+
+        try {
+            if (!empty($corpus->externalid)) {
+                $client = new vertexai_client(null, vertexai_client::get_base_url_for_location($storedlocation));
+                (new vertexai_rag_api($client))->delete_corpus((string)$corpus->externalid);
+            }
+        } catch (\Throwable $e) {
+            // The new location cannot address the old resource; keep the sync moving.
+            debugging(
+                'StudyBuddy could not delete the previous Vertex AI corpus in location ' .
+                    $storedlocation . ': ' . $e->getMessage(),
+                DEBUG_DEVELOPER
+            );
+        }
+
+        $DB->delete_records('local_studybuddy_store_files', ['vectorstoreid' => $corpus->id]);
+        $DB->delete_records('local_studybuddy_stores', ['id' => $corpus->id]);
+    }
+
+    /**
+     * Extracts a location from a Google Cloud resource name.
+     *
+     * @param string $resource Resource name.
+     * @return string Resource location, or an empty string when unavailable.
+     */
+    private function get_resource_location(string $resource): string {
+        if (preg_match('#^projects/[^/]+/locations/([^/]+)/#', $resource, $matches)) {
+            return (string)$matches[1];
+        }
+
+        return '';
     }
 
     /**

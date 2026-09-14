@@ -58,13 +58,28 @@ $PAGE->requires->js_call_amd('local_studybuddy/studybuddy', 'initSources', [$cou
 $renderer = $PAGE->get_renderer('local_studybuddy');
 $sources = $service->list_sources($courseid);
 $status = $service->get_sync_status($courseid);
-$statuslabel = !empty($status['needsreindex']) ?
-    str_replace(
-        '%%PROVIDER%%',
-        $status['providerlabel'],
-        get_string('syncstatus:providerchanged', 'local_studybuddy')
-    ) :
-    get_string('sourcestatus', 'local_studybuddy', (object)$status);
+$statuslabel = get_string('sourcestatus', 'local_studybuddy', (object)$status);
+if (!empty($status['needsreindex'])) {
+    if (empty($status['locationvalid'])) {
+        $statuslabel = str_replace(
+            '%%LOCATION%%',
+            $status['configuredlocation'],
+            get_string('syncstatus:locationinvalid', 'local_studybuddy')
+        );
+    } else if (!empty($status['locationchanged'])) {
+        $statuslabel = str_replace(
+            ['%%LOCATION%%', '%%STOREDLOCATION%%'],
+            [$status['configuredlocation'], $status['storedlocation']],
+            get_string('syncstatus:locationchanged', 'local_studybuddy')
+        );
+    } else {
+        $statuslabel = str_replace(
+            '%%PROVIDER%%',
+            $status['providerlabel'],
+            get_string('syncstatus:providerchanged', 'local_studybuddy')
+        );
+    }
+}
 
 echo $OUTPUT->header();
 echo $renderer->render_sources_table([

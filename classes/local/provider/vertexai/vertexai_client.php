@@ -108,7 +108,25 @@ class vertexai_client {
             return $jsonbaseurl;
         }
 
-        return 'https://' . self::get_configured_location() . '-aiplatform.googleapis.com';
+        return self::get_base_url_for_location(self::get_configured_location());
+    }
+
+    /**
+     * Returns the Vertex AI endpoint for a location.
+     *
+     * @param string $location Vertex AI location.
+     * @return string Base URL.
+     */
+    public static function get_base_url_for_location(string $location): string {
+        if ($location === 'global') {
+            return 'https://aiplatform.googleapis.com';
+        }
+
+        if (in_array($location, ['eu', 'us'], true)) {
+            return 'https://aiplatform.' . $location . '.rep.googleapis.com';
+        }
+
+        return 'https://' . $location . '-aiplatform.googleapis.com';
     }
 
     /**
@@ -148,6 +166,52 @@ class vertexai_client {
         }
 
         return 'europe-west3';
+    }
+
+    /**
+     * Returns the regional locations supported by Vertex AI RAG Engine.
+     *
+     * Multi-regions such as eu, us and global are intentionally excluded:
+     * they can be available for model inference but are not RAG Engine locations.
+     *
+     * @return array<string, string> Supported locations.
+     */
+    public static function get_supported_rag_locations(): array {
+        return [
+            'us-central1' => 'us-central1',
+            'us-east1' => 'us-east1',
+            'us-east4' => 'us-east4',
+            'europe-west3' => 'europe-west3',
+            'europe-west4' => 'europe-west4',
+            'europe-central2' => 'europe-central2',
+            'europe-north1' => 'europe-north1',
+            'europe-southwest1' => 'europe-southwest1',
+            'europe-west1' => 'europe-west1',
+            'europe-west2' => 'europe-west2',
+            'europe-west6' => 'europe-west6',
+            'europe-west8' => 'europe-west8',
+            'europe-west9' => 'europe-west9',
+            'asia-east1' => 'asia-east1',
+            'asia-northeast1' => 'asia-northeast1',
+            'asia-northeast3' => 'asia-northeast3',
+            'asia-south1' => 'asia-south1',
+            'asia-southeast1' => 'asia-southeast1',
+            'us-east5' => 'us-east5',
+            'us-south1' => 'us-south1',
+            'us-west1' => 'us-west1',
+            'us-west4' => 'us-west4',
+        ];
+    }
+
+    /**
+     * Checks whether a location can be used by Vertex AI RAG Engine.
+     *
+     * @param string|null $location Location to check, or the configured location.
+     * @return bool
+     */
+    public static function is_supported_rag_location(?string $location = null): bool {
+        $location = $location ?? self::get_configured_location();
+        return array_key_exists($location, self::get_supported_rag_locations());
     }
 
     /**
@@ -269,14 +333,26 @@ class vertexai_client {
 
         $status = (int)($curl->get_info()['http_code'] ?? 0);
         $error = (string)($curl->error ?? '');
+        $curlerrno = $curl->get_errno();
 
-        if ($curl->get_errno() !== 0 || $status === 0) {
-            throw new \moodle_exception('vertexaiapierror', 'local_studybuddy', '', $error ?: $raw);
+        if ($curlerrno !== 0 || $status === 0) {
+            $diagnostic = $error ?: (string)$raw;
+            debugging(
+                'StudyBuddy Vertex request failed: method=' . $method . '; path=' . $path .
+                    '; httpcode=' . $status . '; curlerrno=' . $curlerrno . '; message=' . $diagnostic,
+                DEBUG_DEVELOPER
+            );
+            throw new \moodle_exception('vertexaiapierror', 'local_studybuddy', '', $diagnostic);
         }
 
         if ($status >= 400) {
             $decoded = json_decode((string)$raw, true);
             $message = $decoded['error']['message'] ?? $raw;
+            debugging(
+                'StudyBuddy Vertex request rejected: method=' . $method . '; path=' . $path .
+                    '; httpcode=' . $status . '; message=' . (string)$message,
+                DEBUG_DEVELOPER
+            );
             throw new \moodle_exception('vertexaiapierror', 'local_studybuddy', '', $message);
         }
 

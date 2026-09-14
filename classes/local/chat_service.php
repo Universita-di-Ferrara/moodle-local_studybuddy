@@ -113,6 +113,11 @@ class chat_service {
         try {
             $answer = $this->ask_configured_provider($chat, $message);
         } catch (\Throwable $exception) {
+            debugging(
+                'StudyBuddy provider exception: class=' . get_class($exception) .
+                    '; message=' . $exception->getMessage(),
+                DEBUG_DEVELOPER
+            );
             $this->throw_user_friendly_provider_exception($exception);
         }
         $response = $answer['response'];
