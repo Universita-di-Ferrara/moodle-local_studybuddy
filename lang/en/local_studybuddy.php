@@ -53,6 +53,7 @@ $string['chat:nosources'] = 'No enabled indexed sources are available for this c
 $string['chat:providerbusy'] = 'The AI service is temporarily busy. Please try again later.';
 $string['chat:providersyncneeded'] = 'The selected AI provider does not have a ready course RAG store yet. Run StudyBuddy source indexing for this course, then try again.';
 $string['chat:providerunavailable'] = 'StudyBuddy is temporarily unavailable. Please try again later.';
+$string['chat:requesttimeout'] = 'The AI service did not respond in time. Please try again.';
 $string['chat:responseavailable'] = 'StudyBuddy response received.';
 $string['chat:syncinprogress'] = 'StudyBuddy is syncing the course corpus. Please try again when the sources are ready.';
 $string['chat:syncplaceholder'] = 'Chat is temporarily disabled while StudyBuddy prepares the course corpus.';

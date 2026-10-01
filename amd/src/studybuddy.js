@@ -26,6 +26,7 @@ define(['core/ajax', 'core/notification', 'core/str', 'core/templates'],
     var pollTimers = {};
     var uiStrings = {};
     var uiStringsPromise = null;
+    var chatRequestTimeout = 120000;
 
     /**
      * Load UI strings used by this AMD module.
@@ -50,7 +51,8 @@ define(['core/ajax', 'core/notification', 'core/str', 'core/templates'],
                 {key: 'chat:syncplaceholder', component: 'local_studybuddy'},
                 {key: 'chat:responseavailable', component: 'local_studybuddy'},
                 {key: 'chat:providerbusy', component: 'local_studybuddy'},
-                {key: 'chat:providerunavailable', component: 'local_studybuddy'}
+                {key: 'chat:providerunavailable', component: 'local_studybuddy'},
+                {key: 'chat:requesttimeout', component: 'local_studybuddy'}
             ]).then(function(strings) {
                 uiStrings.sourcesused = strings[0];
                 uiStrings.welcomemessage = strings[1];
@@ -68,6 +70,7 @@ define(['core/ajax', 'core/notification', 'core/str', 'core/templates'],
                 uiStrings.chatresponseavailable = strings[13];
                 uiStrings.chatproviderbusy = strings[14];
                 uiStrings.chatproviderunavailable = strings[15];
+                uiStrings.chatrequesttimeout = strings[16];
                 return uiStrings;
             });
         }
@@ -176,9 +179,18 @@ define(['core/ajax', 'core/notification', 'core/str', 'core/templates'],
      * @param {HTMLElement} root Chat root.
      * @return {Promise} Template rendering promise.
      */
-    var showProviderError = function(messages, error, root) {
-        var message = error.errorcode === 'chat:providerbusy' ?
-            uiStrings.chatproviderbusy : uiStrings.chatproviderunavailable;
+    var showChatError = function(messages, error, root) {
+        var message;
+
+        if (isProviderError(error)) {
+            message = error.errorcode === 'chat:providerbusy' ?
+                uiStrings.chatproviderbusy : uiStrings.chatproviderunavailable;
+        } else if (error && error.errorcode === 'chat:requesttimeout') {
+            message = uiStrings.chatrequesttimeout;
+        } else {
+            Notification.exception(error);
+            return Promise.resolve(null);
+        }
 
         return appendMessage(messages, 'assistant', message, []).then(function() {
             announce(root, message);
@@ -240,6 +252,18 @@ define(['core/ajax', 'core/notification', 'core/str', 'core/templates'],
         if (form) {
             form.setAttribute('aria-busy', disabled ? 'true' : 'false');
         }
+    };
+
+    /**
+     * Return the chat composer to its idle state.
+     *
+     * @param {HTMLElement} root Root chat node.
+     * @param {HTMLElement} input Chat textarea.
+     */
+    var resetChatState = function(root, input) {
+        setTyping(root, false);
+        setChatAvailability(root, false);
+        input.focus();
     };
 
     /**
@@ -320,6 +344,49 @@ define(['core/ajax', 'core/notification', 'core/str', 'core/templates'],
     };
 
     /**
+     * Build the visible presentation when the course corpus needs reindexing.
+     *
+     * @param {Object} status Sync status.
+     * @param {Boolean} technicalstatus Whether technical details are allowed.
+     * @return {Object} Visible sync state.
+     */
+    var getReindexPresentation = function(status, technicalstatus) {
+        if (!technicalstatus) {
+            return {type: 'info', text: uiStrings.syncdisabled || '', show: true};
+        }
+
+        if (status.locationvalid === false) {
+            return {
+                type: 'info',
+                text: (uiStrings.synclocationinvalid || '').replace(
+                    '%%LOCATION%%',
+                    status.configuredlocation || ''
+                ),
+                show: true
+            };
+        }
+
+        if (status.locationchanged) {
+            return {
+                type: 'info',
+                text: (uiStrings.synclocationchanged || '')
+                    .replace('%%LOCATION%%', status.configuredlocation || '')
+                    .replace('%%STOREDLOCATION%%', status.storedlocation || ''),
+                show: true
+            };
+        }
+
+        return {
+            type: 'info',
+            text: (uiStrings.syncproviderchanged || '').replace(
+                '%%PROVIDER%%',
+                status.providerlabel || status.provider || ''
+            ),
+            show: true
+        };
+    };
+
+    /**
      * Build the visible sync state for a page.
      *
      * @param {HTMLElement} root Root node.
@@ -337,21 +404,7 @@ define(['core/ajax', 'core/notification', 'core/str', 'core/templates'],
         }
 
         if (status.needsreindex) {
-            var reindexText = uiStrings.syncdisabled || '';
-            if (technicalstatus && status.locationvalid === false) {
-                reindexText = (uiStrings.synclocationinvalid || '')
-                    .replace('%%LOCATION%%', status.configuredlocation || '');
-            } else if (technicalstatus && status.locationchanged) {
-                reindexText = (uiStrings.synclocationchanged || '')
-                    .replace('%%LOCATION%%', status.configuredlocation || '')
-                    .replace('%%STOREDLOCATION%%', status.storedlocation || '');
-            } else if (technicalstatus) {
-                reindexText = (uiStrings.syncproviderchanged || '').replace(
-                    '%%PROVIDER%%',
-                    status.providerlabel || status.provider || ''
-                );
-            }
-            return {type: 'info', text: reindexText, show: true};
+            return getReindexPresentation(status, technicalstatus);
         }
 
         if (Number(status.available || 0) > 0) {
@@ -502,6 +555,29 @@ define(['core/ajax', 'core/notification', 'core/str', 'core/templates'],
                 message: text
             }
         }])[0];
+    };
+
+    /**
+     * Send a chat message with a bounded wait time.
+     *
+     * @param {Object} config Runtime config.
+     * @param {String} text Message text.
+     * @return {Promise} Message request.
+     */
+    var sendChatMessageWithTimeout = function(config, text) {
+        return new Promise(function(resolve, reject) {
+            var timer = window.setTimeout(function() {
+                reject({errorcode: 'chat:requesttimeout'});
+            }, chatRequestTimeout);
+
+            sendChatMessage(config, text).then(function(response) {
+                window.clearTimeout(timer);
+                return resolve(response);
+            }).catch(function(error) {
+                window.clearTimeout(timer);
+                return reject(error);
+            });
+        });
     };
 
     /**
@@ -717,24 +793,16 @@ define(['core/ajax', 'core/notification', 'core/str', 'core/templates'],
             setChatAvailability(root, true);
             appendMessage(messages, 'user', text, []).then(function() {
                 setTyping(root, true);
-                return sendChatMessage(config, text);
+                return sendChatMessageWithTimeout(config, text);
             }).then(function(response) {
-                setTyping(root, false);
                 return appendChatResponse(messages, response);
             }).then(function(response) {
+                resetChatState(root, input);
                 announce(root, uiStrings.chatresponseavailable || '');
-                setChatAvailability(root, false);
-                input.focus();
                 return response;
             }).catch(function(error) {
-                setTyping(root, false);
-                setChatAvailability(root, false);
-                if (isProviderError(error)) {
-                    return showProviderError(messages, error, root);
-                } else {
-                    Notification.exception(error);
-                    return null;
-                }
+                resetChatState(root, input);
+                return showChatError(messages, error, root);
             });
         });
 
