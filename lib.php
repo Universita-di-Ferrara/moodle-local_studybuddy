@@ -36,6 +36,10 @@ function local_studybuddy_extend_navigation_course(navigation_node $navigation, 
         return;
     }
 
+    if (!\local_studybuddy\local\course_availability::is_enabled((int)$course->id)) {
+        return;
+    }
+
     $canaccess = has_capability('local/studybuddy:chat', $context) ||
         has_capability('local/studybuddy:practice', $context) ||
         has_capability('local/studybuddy:generate', $context) ||

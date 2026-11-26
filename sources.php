@@ -36,6 +36,7 @@ $service = new source_service();
 $message = '';
 
 require_login($course);
+\local_studybuddy\local\course_availability::require_enabled($courseid);
 require_capability('local/studybuddy:managesources', $context);
 
 $formdata = data_submitted();

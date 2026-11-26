@@ -59,6 +59,7 @@ class toggle_source extends external_api {
         ]);
         $context = \context_course::instance((int)$params['courseid']);
         self::validate_context($context);
+        \local_studybuddy\local\course_availability::require_enabled((int)$params['courseid']);
         require_capability('local/studybuddy:managesources', $context);
 
         return (new \local_studybuddy\local\source_service())->toggle_source(

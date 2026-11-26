@@ -102,6 +102,8 @@ class provider implements
         $collection->add_database_table('local_studybuddy_usage', [
             'courseid' => 'privacy:metadata:usage:courseid',
             'userid' => 'privacy:metadata:usage:userid',
+            'feature' => 'privacy:metadata:usage:feature',
+            'activitytype' => 'privacy:metadata:usage:activitytype',
             'prompttext' => 'privacy:metadata:usage:prompttext',
             'responsetext' => 'privacy:metadata:usage:responsetext',
         ], 'privacy:metadata:usage');

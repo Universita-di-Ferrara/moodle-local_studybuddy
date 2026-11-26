@@ -181,16 +181,20 @@ class activity_generator {
      */
     private function normalise_activity_result(array $result, array $params): array {
         $type = $this->normalise_activity_type((string)($result['activitytype'] ?? $params['activitytype'] ?? 'quiz'));
-
+        $usage = $result['_usage'] ?? null;
         if ($type === 'flashcards') {
-            return $this->normalise_flashcards_result($result, $params);
+            $normalised = $this->normalise_flashcards_result($result, $params);
+        } else if ($type === 'conceptmap') {
+            $normalised = $this->normalise_conceptmap_result($result, $params);
+        } else {
+            $normalised = $this->normalise_quiz_result($result, $params);
         }
 
-        if ($type === 'conceptmap') {
-            return $this->normalise_conceptmap_result($result, $params);
+        if (is_array($usage)) {
+            $normalised['_usage'] = $usage;
         }
 
-        return $this->normalise_quiz_result($result, $params);
+        return $normalised;
     }
 
     /**

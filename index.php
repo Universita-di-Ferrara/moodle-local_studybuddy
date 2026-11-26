@@ -30,6 +30,7 @@ $course = $DB->get_record('course', ['id' => $courseid], '*', MUST_EXIST);
 $context = context_course::instance($courseid);
 
 require_login($course);
+\local_studybuddy\local\course_availability::require_enabled($courseid);
 
 if (has_capability('local/studybuddy:chat', $context)) {
     redirect(new moodle_url('/local/studybuddy/chat.php', ['courseid' => $courseid]));

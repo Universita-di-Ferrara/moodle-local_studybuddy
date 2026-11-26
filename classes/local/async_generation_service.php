@@ -43,6 +43,7 @@ class async_generation_service {
     public function queue_practice(int $courseid, int $userid, string $query, array $params): int {
         global $DB;
 
+        course_availability::require_enabled($courseid);
         $this->require_provider_ready($courseid, $userid);
         $params = $this->normalise_params($params, $courseid, $query);
         $retentiondays = max(1, (int)(get_config('local_studybuddy', 'practiceretention') ?: 7));
@@ -95,6 +96,7 @@ class async_generation_service {
     ): int {
         global $DB;
 
+        course_availability::require_enabled($courseid);
         $this->require_provider_ready($courseid, $userid, $status);
         $params = $this->normalise_params($params, $courseid, $prompt);
         $activitytype = (string)$params['activitytype'];
@@ -155,7 +157,8 @@ class async_generation_service {
         $params = $this->normalise_params($params, (int)$practice->courseid, (string)$practice->querytext);
 
         try {
-            $result = $this->generate_activity((int)$practice->courseid, $params, (int)$practice->userid);
+            course_availability::require_enabled((int)$practice->courseid);
+            $result = $this->generate_activity((int)$practice->courseid, $params, (int)$practice->userid, 'practice');
             $DB->update_record('local_studybuddy_practice', (object)[
                 'id' => $practice->id,
                 'paramsjson' => json_encode($params, JSON_UNESCAPED_UNICODE),
@@ -198,7 +201,8 @@ class async_generation_service {
         $params = $this->normalise_params($params, (int)$draft->courseid, (string)$draft->prompttext);
 
         try {
-            $result = $this->generate_activity((int)$draft->courseid, $params, (int)$draft->userid);
+            course_availability::require_enabled((int)$draft->courseid);
+            $result = $this->generate_activity((int)$draft->courseid, $params, (int)$draft->userid, 'teacher');
             if ((string)$params['activitytype'] === 'h5p_flashcards') {
                 $result['activitytype'] = 'h5p_flashcards';
             }
@@ -225,7 +229,7 @@ class async_generation_service {
      * @param int $userid User who requested the activity.
      * @return array Generated activity.
      */
-    private function generate_activity(int $courseid, array &$params, int $userid): array {
+    private function generate_activity(int $courseid, array &$params, int $userid, string $feature): array {
         $this->require_provider_ready($courseid, $userid);
         $provider = (string)(get_config('local_studybuddy', 'provider') ?: 'openai');
         if ($provider === 'openai') {
@@ -268,7 +272,20 @@ class async_generation_service {
         if ((string)($generationparams['activitytype'] ?? '') === 'h5p_flashcards') {
             $generationparams['activitytype'] = 'flashcards';
         }
-        return (new activity_generator())->generate_activity($retrieved, $generationparams);
+        $result = (new activity_generator())->generate_activity($retrieved, $generationparams);
+        $usage = $result['_usage'] ?? [];
+        unset($result['_usage']);
+        usage_tracker::record(
+            $courseid,
+            $userid,
+            $feature,
+            (string)($params['activitytype'] ?? 'quiz'),
+            $provider,
+            usage_tracker::configured_model($provider),
+            ['_usage' => $usage]
+        );
+
+        return $result;
     }
 
     /**

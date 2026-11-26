@@ -98,6 +98,7 @@ class google_provider implements ai_provider {
             'model' => google_client::get_configured_generation_model(),
             'file_search_store' => $storeid ?: null,
         ];
+        $decoded['_usage'] = $response['usage'] ?? [];
 
         return $decoded;
     }

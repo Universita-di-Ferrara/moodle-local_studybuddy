@@ -342,6 +342,15 @@ class chat_service {
         }
 
         $sources = $this->normalise_public_sources($chatprovider->extract_sources($response));
+        usage_tracker::record(
+            $courseid,
+            (int)$chat->userid,
+            'chat',
+            '',
+            $provider,
+            usage_tracker::configured_model($provider),
+            $response
+        );
 
         return [
             'response' => $assistanttext,

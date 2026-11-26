@@ -51,6 +51,7 @@ class sync_course extends external_api {
         $params = self::validate_parameters(self::execute_parameters(), ['courseid' => $courseid]);
         $context = \context_course::instance((int)$params['courseid']);
         self::validate_context($context);
+        \local_studybuddy\local\course_availability::require_enabled((int)$params['courseid']);
         require_capability('local/studybuddy:managesources', $context);
 
         $service = new \local_studybuddy\local\source_service();

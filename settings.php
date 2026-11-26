@@ -59,7 +59,52 @@ if (!class_exists('local_studybuddy_admin_setting_heading')) {
     }
 }
 
+if (!class_exists('local_studybuddy_admin_setting_radio')) {
+    /**
+     * Select one admin setting value with native radio controls.
+     */
+    class local_studybuddy_admin_setting_radio extends admin_setting_configselect {
+        /**
+         * Renders the configured choices as an accessible radio group.
+         *
+         * @param string $data Current value.
+         * @param string $query Search query.
+         * @return string
+         */
+        public function output_html($data, $query = '') {
+            $items = '';
+            foreach ($this->choices as $value => $label) {
+                $id = $this->get_id() . '_' . clean_param((string)$value, PARAM_ALPHANUMEXT);
+                $attributes = [
+                    'type' => 'radio',
+                    'name' => $this->get_full_name(),
+                    'id' => $id,
+                    'value' => (string)$value,
+                ];
+                if ((string)$data === (string)$value) {
+                    $attributes['checked'] = 'checked';
+                }
+                if ($this->is_readonly()) {
+                    $attributes['disabled'] = 'disabled';
+                }
+                $items .= html_writer::div(
+                    html_writer::empty_tag('input', $attributes) . ' ' .
+                        html_writer::tag('label', $label, ['for' => $id]),
+                    'form-check'
+                );
+            }
+
+            return format_admin_setting($this, $this->visiblename, $items, $this->description, false, '', null, $query);
+        }
+    }
+}
+
 if ($hassiteconfig) {
+    $ADMIN->add('reports', new admin_externalpage(
+        'local_studybuddy_usage',
+        get_string('usagereport', 'local_studybuddy'),
+        new moodle_url('/local/studybuddy/usage.php')
+    ));
     $settings = $ADMIN->locate('local_studybuddy');
     if (!$settings) {
         $settings = new admin_settingpage('local_studybuddy', get_string('pluginname', 'local_studybuddy'));
@@ -68,6 +113,26 @@ if ($hassiteconfig) {
 }
 
 if ($hassiteconfig && $ADMIN->fulltree && $settings instanceof admin_settingpage) {
+    $settings->add(new local_studybuddy_admin_setting_radio(
+        'local_studybuddy/course_scope',
+        get_string('settings:coursescope', 'local_studybuddy'),
+        get_string('settings:coursescope_desc', 'local_studybuddy'),
+        'all',
+        [
+            'all' => get_string('settings:allcourses', 'local_studybuddy'),
+            'selected' => get_string('settings:selectedcourses', 'local_studybuddy'),
+        ]
+    ));
+
+    $settings->add(new admin_setting_configtext(
+        'local_studybuddy/enabled_course_ids',
+        get_string('settings:enabledcourseids', 'local_studybuddy'),
+        get_string('settings:enabledcourseids_desc', 'local_studybuddy'),
+        '',
+        PARAM_TEXT
+    ));
+    $settings->hide_if('local_studybuddy/enabled_course_ids', 'local_studybuddy/course_scope', 'neq', 'selected');
+
     $settings->add(new admin_setting_configselect(
         'local_studybuddy/provider',
         get_string('settings:provider', 'local_studybuddy'),
