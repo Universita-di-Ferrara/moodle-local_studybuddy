@@ -81,7 +81,7 @@ $totals = $DB->get_record_sql(
     $params
 );
 $bycourse = $DB->get_records_sql(
-    "SELECT u.courseid, c.fullname AS coursename, COUNT(*) AS requests,
+    "SELECT MIN(u.id) AS id, u.courseid, c.fullname AS coursename, COUNT(*) AS requests,
             SUM(u.inputtokens) AS inputtokens, SUM(u.outputtokens) AS outputtokens,
             SUM(u.totaltokens) AS totaltokens
        FROM {local_studybuddy_usage} u JOIN {course} c ON c.id = u.courseid
@@ -89,7 +89,7 @@ $bycourse = $DB->get_records_sql(
     $params
 );
 $byfeature = $DB->get_records_sql(
-    "SELECT u.feature, u.activitytype, COUNT(*) AS requests,
+    "SELECT MIN(u.id) AS id, u.feature, u.activitytype, COUNT(*) AS requests,
             SUM(u.inputtokens) AS inputtokens, SUM(u.outputtokens) AS outputtokens,
             SUM(u.totaltokens) AS totaltokens
        FROM {local_studybuddy_usage} u WHERE $where
@@ -97,7 +97,7 @@ $byfeature = $DB->get_records_sql(
     $params
 );
 $byprovider = $DB->get_records_sql(
-    "SELECT u.provider, u.model, COUNT(*) AS requests,
+    "SELECT MIN(u.id) AS id, u.provider, u.model, COUNT(*) AS requests,
             SUM(u.inputtokens) AS inputtokens, SUM(u.outputtokens) AS outputtokens,
             SUM(u.totaltokens) AS totaltokens
        FROM {local_studybuddy_usage} u WHERE $where
@@ -105,7 +105,7 @@ $byprovider = $DB->get_records_sql(
     $params
 );
 $bycoursefeature = $DB->get_records_sql(
-    "SELECT u.courseid, c.fullname AS coursename, u.feature, u.activitytype, COUNT(*) AS requests,
+    "SELECT MIN(u.id) AS id, u.courseid, c.fullname AS coursename, u.feature, u.activitytype, COUNT(*) AS requests,
             SUM(u.inputtokens) AS inputtokens, SUM(u.outputtokens) AS outputtokens,
             SUM(u.totaltokens) AS totaltokens
        FROM {local_studybuddy_usage} u JOIN {course} c ON c.id = u.courseid
