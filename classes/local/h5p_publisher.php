@@ -137,7 +137,7 @@ class h5p_publisher {
             $contentbank = new \core_contentbank\contentbank();
             return $contentbank->create_content_from_file($context, $userid, $storedfile);
         } finally {
-            $storedfile->delete();
+            $fs->delete_area_files($context->id, 'local_studybuddy', 'h5p_package', $draftid);
         }
     }
 
