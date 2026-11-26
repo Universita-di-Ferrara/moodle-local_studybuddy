@@ -34,7 +34,7 @@ $reporttypes = ['system', 'course', 'function', 'provider', 'coursefunction'];
 if (!in_array($report, $reporttypes, true)) {
     $report = 'system';
 }
-$parse_date = static function(string $value): int {
+$parsedate = static function (string $value): int {
     if ($value === '') {
         return 0;
     }
@@ -50,8 +50,8 @@ $parse_date = static function(string $value): int {
 
     return make_timestamp($year, $month, $day, 0, 0, 0);
 };
-$from = $parse_date($fromdate);
-$to = $parse_date($todate);
+$from = $parsedate($fromdate);
+$to = $parsedate($todate);
 if ($from > 0 && $to > 0 && $from > $to) {
     throw new \moodle_exception('invaliddaterange', 'local_studybuddy');
 }
@@ -144,7 +144,10 @@ $form .= html_writer::empty_tag('input', ['type' => 'date', 'id' => 'usage-to', 
     'class' => 'form-control']);
 $form .= html_writer::end_tag('div');
 $form .= html_writer::start_tag('div', ['class' => 'form-group col-12 col-md-auto mb-2']);
-$form .= html_writer::tag('button', get_string('usagefilter', 'local_studybuddy'), ['type' => 'submit', 'class' => 'btn btn-primary']);
+$form .= html_writer::tag('button', get_string('usagefilter', 'local_studybuddy'), [
+    'type' => 'submit',
+    'class' => 'btn btn-primary',
+]);
 $form .= html_writer::end_tag('div');
 $form .= html_writer::end_tag('form');
 
@@ -165,11 +168,13 @@ if ($report === 'system') {
     echo html_writer::table($summary);
 }
 
-foreach ([
+foreach (
+    [
     [$bycourse, 'usagebycourse', 'course'],
     [$byfeature, 'usagebyfeature', 'feature'],
     [$byprovider, 'usagebyprovider', 'provider'],
-] as [$records, $heading, $groupby]) {
+    ] as [$records, $heading, $groupby]
+) {
     if ($report !== $groupby) {
         continue;
     }
@@ -179,8 +184,13 @@ foreach ([
         continue;
     }
     $table = new html_table();
-    $firstcolumn = $groupby === 'course' ? get_string('usagecourse', 'local_studybuddy') :
-        ($groupby === 'provider' ? get_string('usageprovider', 'local_studybuddy') : get_string('usagefeature', 'local_studybuddy'));
+    if ($groupby === 'course') {
+        $firstcolumn = get_string('usagecourse', 'local_studybuddy');
+    } else if ($groupby === 'provider') {
+        $firstcolumn = get_string('usageprovider', 'local_studybuddy');
+    } else {
+        $firstcolumn = get_string('usagefeature', 'local_studybuddy');
+    }
     $table->head = [$firstcolumn,
         get_string('usagetotalrequests', 'local_studybuddy'), get_string('usageinputtokens', 'local_studybuddy'),
         get_string('usageoutputtokens', 'local_studybuddy'), get_string('usagetotaltokens', 'local_studybuddy')];

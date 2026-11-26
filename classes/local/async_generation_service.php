@@ -227,6 +227,7 @@ class async_generation_service {
      * @param int $courseid Course id.
      * @param array $params Generation parameters.
      * @param int $userid User who requested the activity.
+     * @param string $feature Feature used for usage tracking.
      * @return array Generated activity.
      */
     private function generate_activity(int $courseid, array &$params, int $userid, string $feature): array {
