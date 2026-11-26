@@ -29,6 +29,21 @@ use local_studybuddy\local\provider\vertexai\vertexai_course_rag_service;
 function xmldb_local_studybuddy_uninstall(): bool {
     global $DB;
 
+    $files = $DB->get_records_sql(
+        "SELECT DISTINCT contextid
+           FROM {files}
+          WHERE component = :component
+            AND filearea = :filearea",
+        [
+            'component' => 'local_studybuddy',
+            'filearea' => 'h5p_package',
+        ]
+    );
+    $filestorage = get_file_storage();
+    foreach ($files as $file) {
+        $filestorage->delete_area_files((int)$file->contextid, 'local_studybuddy', 'h5p_package');
+    }
+
     $stores = $DB->get_records('local_studybuddy_stores', [], '', 'courseid, provider');
     foreach ($stores as $store) {
         try {
