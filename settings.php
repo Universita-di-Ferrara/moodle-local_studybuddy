@@ -94,7 +94,13 @@ if (!class_exists('local_studybuddy_admin_setting_radio')) {
                 );
             }
 
-            return format_admin_setting($this, $this->visiblename, $items, $this->description, false, '', null, $query);
+            $group = html_writer::tag(
+                'fieldset',
+                html_writer::tag('legend', $this->visiblename, ['class' => 'visually-hidden']) . $items,
+                ['class' => 'form-check-group']
+            );
+
+            return format_admin_setting($this, $this->visiblename, $group, $this->description, false, '', null, $query);
         }
     }
 }
