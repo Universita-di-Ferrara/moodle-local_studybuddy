@@ -32,8 +32,22 @@ class course_availability {
      * @return bool
      */
     public static function is_enabled(int $courseid): bool {
-        if (get_config('local_studybuddy', 'course_scope') !== 'selected') {
+        $enabledids = self::get_enabled_course_ids();
+        if ($enabledids === null) {
             return true;
+        }
+
+        return in_array($courseid, $enabledids, true);
+    }
+
+    /**
+     * Returns the configured course ids, or null when all courses are enabled.
+     *
+     * @return int[]|null Null means that the site-wide scope is all courses.
+     */
+    public static function get_enabled_course_ids(): ?array {
+        if (get_config('local_studybuddy', 'course_scope') !== 'selected') {
+            return null;
         }
 
         $configuredids = (string)get_config('local_studybuddy', 'enabled_course_ids');
@@ -46,7 +60,7 @@ class course_availability {
         }
         $ids = array_unique($ids);
 
-        return in_array($courseid, $ids, true);
+        return array_values($ids);
     }
 
     /**
