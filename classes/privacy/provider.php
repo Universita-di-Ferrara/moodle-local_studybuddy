@@ -43,6 +43,8 @@ class provider implements
      * @return collection
      */
     public static function get_metadata(collection $collection): collection {
+        $collection->add_subsystem_link('core_files', [], 'privacy:metadata:core_files');
+
         $collection->add_database_table('local_studybuddy_documents', [
             'courseid' => 'privacy:metadata:documents:courseid',
             'contextid' => 'privacy:metadata:documents:contextid',
@@ -237,6 +239,12 @@ class provider implements
                 'userid' => $userid,
             ], 'timecreated');
             foreach ($records as $record) {
+                writer::with_context($context)->export_area_files(
+                    ['drafts', (string)$record->id],
+                    'local_studybuddy',
+                    'h5p_package',
+                    $record->id
+                );
                 $drafts[] = [
                     'title' => $record->title,
                     'prompt' => $record->prompttext,
@@ -304,6 +312,7 @@ class provider implements
         }
 
         $courseid = (int)$context->instanceid;
+        get_file_storage()->delete_area_files($context->id, 'local_studybuddy', 'h5p_package');
         $stores = $DB->get_records('local_studybuddy_stores', ['courseid' => $courseid], '', 'id');
         if (!empty($stores)) {
             [$storesql, $storeparams] = $DB->get_in_or_equal(array_keys($stores), SQL_PARAMS_NAMED);
@@ -342,6 +351,11 @@ class provider implements
                 'courseid' => $context->instanceid,
                 'userid' => $userid,
             ]);
+            $drafts = $DB->get_records('local_studybuddy_drafts', [
+                'courseid' => $context->instanceid,
+                'userid' => $userid,
+            ], '', 'id');
+            self::delete_h5p_package_files($context, array_keys($drafts));
             $DB->delete_records('local_studybuddy_drafts', [
                 'courseid' => $context->instanceid,
                 'userid' => $userid,
@@ -375,6 +389,14 @@ class provider implements
 
         [$insql, $params] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
         $params['courseid'] = $context->instanceid;
+        $drafts = $DB->get_records_select(
+            'local_studybuddy_drafts',
+            "courseid = :courseid AND userid {$insql}",
+            $params,
+            '',
+            'id'
+        );
+        self::delete_h5p_package_files($context, array_keys($drafts));
         $DB->delete_records_select('local_studybuddy_practice', "courseid = :courseid AND userid {$insql}", $params);
         $DB->delete_records_select('local_studybuddy_drafts', "courseid = :courseid AND userid {$insql}", $params);
         self::delete_chat_data_for_users($context->instanceid, $userids);
@@ -409,5 +431,28 @@ class provider implements
             $DB->delete_records_select('local_studybuddy_messages', "chatid {$chatsql}", $chatparams);
         }
         $DB->delete_records_select('local_studybuddy_chats', "courseid = :courseid AND userid {$usersql}", $userparams);
+    }
+
+    /**
+     * Deletes transient H5P package files associated with drafts.
+     *
+     * @param \context $context Course context.
+     * @param array $draftids Draft ids.
+     * @return void
+     */
+    private static function delete_h5p_package_files(\context $context, array $draftids): void {
+        if (empty($draftids)) {
+            return;
+        }
+
+        $filestorage = get_file_storage();
+        foreach ($draftids as $draftid) {
+            $filestorage->delete_area_files(
+                $context->id,
+                'local_studybuddy',
+                'h5p_package',
+                (int)$draftid
+            );
+        }
     }
 }

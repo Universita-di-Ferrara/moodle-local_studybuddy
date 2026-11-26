@@ -57,7 +57,13 @@ class h5p_publisher {
         $moduleinfo = null;
         try {
             $packagepath = (new h5p_flashcards_builder())->build_package($data);
-            $contentbank = $this->create_contentbank_content($coursecontext, (int)$USER->id, $packagepath, $draft->title);
+            $contentbank = $this->create_contentbank_content(
+                $coursecontext,
+                (int)$USER->id,
+                $packagepath,
+                $draft->title,
+                (int)$draft->id
+            );
             $moduleinfo = $this->create_h5p_activity($course, $packagepath, $draft->title);
 
             $metadata = json_decode((string)$draft->metadata, true);
@@ -90,10 +96,11 @@ class h5p_publisher {
                     unset($cleanup);
                 }
             }
-            if ($packagepath && file_exists($packagepath)) {
-                @unlink($packagepath);
-            }
             throw $e;
+        } finally {
+            if ($packagepath && is_dir(dirname($packagepath))) {
+                @remove_dir(dirname($packagepath));
+            }
         }
     }
 
@@ -104,28 +111,34 @@ class h5p_publisher {
      * @param int $userid User id.
      * @param string $packagepath Local package path.
      * @param string $title Content title.
+     * @param int $draftid Draft id, used to scope temporary stored files.
      * @return \core_contentbank\content Created content bank item.
      */
     private function create_contentbank_content(
         \context_course $context,
         int $userid,
         string $packagepath,
-        string $title
+        string $title,
+        int $draftid
     ): \core_contentbank\content {
         $filerecord = [
             'contextid' => $context->id,
             'component' => 'local_studybuddy',
             'filearea' => 'h5p_package',
-            'itemid' => time(),
+            'itemid' => $draftid,
             'filepath' => '/',
             'filename' => $this->package_filename($title),
         ];
 
         $fs = get_file_storage();
         $storedfile = $fs->create_file_from_pathname($filerecord, $packagepath);
-        $contentbank = new \core_contentbank\contentbank();
 
-        return $contentbank->create_content_from_file($context, $userid, $storedfile);
+        try {
+            $contentbank = new \core_contentbank\contentbank();
+            return $contentbank->create_content_from_file($context, $userid, $storedfile);
+        } finally {
+            $storedfile->delete();
+        }
     }
 
     /**
