@@ -115,6 +115,7 @@ class vertexai_provider implements ai_provider {
             'rag' => 'vertexai_rag_engine',
             'rag_corpus' => $ragcorpus ?: null,
         ];
+        $decoded['_usage'] = $response['usageMetadata'] ?? [];
 
         return $decoded;
     }

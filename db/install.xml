@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="local/studybuddy/db" VERSION="2026081800" COMMENT="XMLDB file for local_studybuddy"
+<XMLDB PATH="local/studybuddy/db" VERSION="2026112000" COMMENT="XMLDB file for local_studybuddy"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
 >
@@ -82,6 +82,8 @@
         <FIELD NAME="chatid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
         <FIELD NAME="provider" TYPE="char" LENGTH="32" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="model" TYPE="char" LENGTH="191" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="feature" TYPE="char" LENGTH="32" NOTNULL="true" DEFAULT="chat" SEQUENCE="false"/>
+        <FIELD NAME="activitytype" TYPE="char" LENGTH="32" NOTNULL="false" SEQUENCE="false"/>
         <FIELD NAME="prompttext" TYPE="text" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="responsetext" TYPE="text" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="inputtokens" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>

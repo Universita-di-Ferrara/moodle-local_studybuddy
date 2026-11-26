@@ -54,7 +54,9 @@ class get_history extends external_api {
         $params = self::validate_parameters(self::execute_parameters(), ['chatid' => $chatid]);
         $service = new \local_studybuddy\local\chat_service();
         $chat = $service->get_chat((int)$params['chatid'], (int)$USER->id);
-        self::validate_context(\context_course::instance((int)$chat->courseid));
+        $context = \context_course::instance((int)$chat->courseid);
+        self::validate_context($context);
+        \local_studybuddy\local\course_availability::require_enabled((int)$chat->courseid);
 
         return [
             'messages' => $service->get_history(

@@ -86,6 +86,7 @@ class openai_provider implements ai_provider {
             'response_id' => $response['id'] ?? null,
             'vector_store_id' => $vectorstoreid ?: null,
         ];
+        $decoded['_usage'] = $response['usage'] ?? [];
 
         return $decoded;
     }

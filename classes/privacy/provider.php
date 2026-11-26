@@ -104,8 +104,15 @@ class provider implements
         $collection->add_database_table('local_studybuddy_usage', [
             'courseid' => 'privacy:metadata:usage:courseid',
             'userid' => 'privacy:metadata:usage:userid',
+            'feature' => 'privacy:metadata:usage:feature',
+            'activitytype' => 'privacy:metadata:usage:activitytype',
+            'provider' => 'privacy:metadata:usage:provider',
+            'model' => 'privacy:metadata:usage:model',
             'prompttext' => 'privacy:metadata:usage:prompttext',
             'responsetext' => 'privacy:metadata:usage:responsetext',
+            'inputtokens' => 'privacy:metadata:usage:inputtokens',
+            'outputtokens' => 'privacy:metadata:usage:outputtokens',
+            'totaltokens' => 'privacy:metadata:usage:totaltokens',
         ], 'privacy:metadata:usage');
 
         $externalfields = [
@@ -285,8 +292,14 @@ class provider implements
             foreach ($records as $record) {
                 $usage[] = [
                     'provider' => $record->provider,
+                    'model' => $record->model,
+                    'feature' => $record->feature,
+                    'activitytype' => $record->activitytype,
                     'prompt' => $record->prompttext,
                     'response' => $record->responsetext,
+                    'inputtokens' => (int)$record->inputtokens,
+                    'outputtokens' => (int)$record->outputtokens,
+                    'totaltokens' => (int)$record->totaltokens,
                     'timecreated' => transform::datetime($record->timecreated),
                 ];
             }

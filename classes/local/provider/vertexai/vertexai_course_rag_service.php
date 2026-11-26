@@ -17,6 +17,7 @@
 namespace local_studybuddy\local\provider\vertexai;
 
 use local_studybuddy\local\course_source_catalogue;
+use local_studybuddy\local\course_availability;
 
 /**
  * Synchronises Moodle course content with Vertex AI RAG Engine.
@@ -268,7 +269,6 @@ class vertexai_course_rag_service {
     public function sync_all_courses(int $limit = 20): array {
         global $DB;
 
-        $courses = $DB->get_records_select('course', 'id <> ?', [SITEID], 'id', 'id', 0, $limit);
         $summary = [
             'courses' => 0,
             'documents' => 0,
@@ -278,6 +278,19 @@ class vertexai_course_rag_service {
             'completed' => 0,
             'failed' => 0,
         ];
+        $select = 'id <> :siteid';
+        $params = ['siteid' => SITEID];
+        $enabledids = course_availability::get_enabled_course_ids();
+        if ($enabledids !== null) {
+            if (empty($enabledids)) {
+                return $summary;
+            }
+            [$insql, $inparams] = $DB->get_in_or_equal($enabledids, SQL_PARAMS_NAMED, 'enabledcourse');
+            $select .= " AND id {$insql}";
+            $params += $inparams;
+        }
+
+        $courses = $DB->get_records_select('course', $select, $params, 'id', 'id', 0, $limit);
 
         foreach ($courses as $course) {
             $coursesummary = $this->sync_course((int)$course->id);

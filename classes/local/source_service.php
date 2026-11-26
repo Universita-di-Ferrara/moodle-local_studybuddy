@@ -45,6 +45,7 @@ class source_service {
     public function queue_sync(int $courseid, string $triggertype = 'manual'): array {
         global $DB;
 
+        course_availability::require_enabled($courseid);
         $this->recover_stale_jobs($courseid);
 
         $provider = $this->get_provider_name();
@@ -130,6 +131,7 @@ class source_service {
      * @return array Sync summary.
      */
     public function sync_course(int $courseid): array {
+        course_availability::require_enabled($courseid);
         $provider = $this->get_provider_name();
 
         if ($provider === 'openai') {

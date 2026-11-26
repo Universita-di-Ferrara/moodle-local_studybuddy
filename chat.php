@@ -40,6 +40,7 @@ $course = $DB->get_record('course', ['id' => $courseid], '*', MUST_EXIST);
 $context = context_course::instance($courseid);
 
 require_login($course);
+\local_studybuddy\local\course_availability::require_enabled($courseid);
 require_capability('local/studybuddy:chat', $context);
 
 $PAGE->set_context($context);

@@ -36,6 +36,7 @@ $course = $DB->get_record('course', ['id' => $courseid], '*', MUST_EXIST);
 $context = context_course::instance($courseid);
 
 require_login($course);
+\local_studybuddy\local\course_availability::require_enabled($courseid);
 require_capability('local/studybuddy:practice', $context);
 $syncstatus = (new source_service())->get_sync_status($courseid, (int)$USER->id);
 $generationdisabled = !empty($syncstatus['needsreindex']) || empty($syncstatus['available']);

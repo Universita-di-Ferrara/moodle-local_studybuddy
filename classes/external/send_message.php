@@ -61,6 +61,7 @@ class send_message extends external_api {
         $chat = $service->get_chat((int)$params['chatid'], (int)$USER->id);
         $context = \context_course::instance((int)$chat->courseid);
         self::validate_context($context);
+        \local_studybuddy\local\course_availability::require_enabled((int)$chat->courseid);
 
         $message = trim(clean_param($params['message'], PARAM_TEXT));
         if ($message === '') {
