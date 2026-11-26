@@ -34,8 +34,27 @@ $reporttypes = ['system', 'course', 'function', 'provider', 'coursefunction'];
 if (!in_array($report, $reporttypes, true)) {
     $report = 'system';
 }
-$from = $fromdate === '' ? 0 : strtotime($fromdate);
-$to = $todate === '' ? 0 : strtotime($todate);
+$parse_date = static function(string $value): int {
+    if ($value === '') {
+        return 0;
+    }
+
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/D', $value)) {
+        throw new \moodle_exception('invalidreportdate', 'local_studybuddy');
+    }
+
+    [$year, $month, $day] = array_map('intval', explode('-', $value));
+    if (!checkdate($month, $day, $year)) {
+        throw new \moodle_exception('invalidreportdate', 'local_studybuddy');
+    }
+
+    return make_timestamp($year, $month, $day, 0, 0, 0);
+};
+$from = $parse_date($fromdate);
+$to = $parse_date($todate);
+if ($from > 0 && $to > 0 && $from > $to) {
+    throw new \moodle_exception('invaliddaterange', 'local_studybuddy');
+}
 $PAGE->set_url(new moodle_url('/local/studybuddy/usage.php', [
     'from' => $fromdate,
     'to' => $todate,
